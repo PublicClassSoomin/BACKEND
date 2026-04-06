@@ -272,3 +272,95 @@ pytest tests/domains/meeting
 - 테스트 먼저 작성하면 유지보수 난이도 ↓
 
 ---
+
+## 📊 도메인별 업무 분담표 (R&R)
+
+각 담당자는 본인 도메인 폴더(`app/domains/{domain}/`) 내의 로직을 책임지며,
+**SharedState에서 본인 영역의 Key만 업데이트**합니다.
+
+| 도메인           | 담당자 역할 (핵심 구현 기능)                         | 담당 SharedState Key                                                               |
+| ---------------- | ---------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| **Meeting**      | 음성 → 텍스트 변환(STT) 및 화자 분리 로직 구현       | `transcript`                                                                       |
+| **Knowledge**    | 과거 문서 검색(RAG) 및 챗봇 대화 엔진 구현           | `search_query`, `retrieved_docs`, `chat_history`, `user_question`, `chat_response` |
+| **Intelligence** | 회의 내용 분석, 핵심 요약 및 주요 결정사항 추출      | `summary`, `decisions`                                                             |
+| **Vision**       | 회의 중 공유된 이미지/스크린샷 분석 및 텍스트 추출   | `screenshot_analysis`                                                              |
+| **Action**       | 분석 결과 기반 WBS 생성 및 외부 툴(Jira 등) 연동     | `wbs`, `external_links`                                                            |
+| **Quality**      | 에이전트 결과물의 정확도 검증 및 전체 에러 로그 관리 | `accuracy_score`, `errors`                                                         |
+
+---
+
+## 2. 🤝 협업을 위한 3대 원칙 (Collaboration Framework)
+
+팀원들이 각자 개발하면서도 전체 시스템이 하나로 동작하도록 만드는 핵심 규칙입니다.
+
+---
+
+### 1️⃣ 상태 중심 개발 (State-First)
+
+- 모든 `service.py`는 **SharedState를 입력으로 받는다**
+- 반환은 반드시 **수정된 필드만 dict 형태로 반환**
+
+```python
+# 예시
+def analyst_service(state):
+    return {
+        "summary": "...",
+        "decisions": ["..."]
+    }
+```
+
+- ❗ 타 도메인의 데이터는 **읽기(Read-only)**만 가능
+
+---
+
+### 2️⃣ 모크 우선 방식 (Mock-First)
+
+- 타 도메인 구현을 기다리지 않기 위한 전략
+- `tests/mocks/`에 시나리오별 JSON 데이터 정의
+
+```json
+{
+  "retrieved_docs": [
+    {
+      "title": "A회의록",
+      "content": "예산 결의 완료..."
+    }
+  ]
+}
+```
+
+👉 모든 도메인은 이 Mock 데이터를 기준으로 개발 가능
+
+---
+
+### 3️⃣ 독립적 테스트 (Independent Testing)
+
+- 각 도메인은 **자기 입력 → 출력**만 검증
+- 전체 시스템 없이도 테스트 가능해야 함
+
+```python
+def test_analyst():
+    input_state = {
+        "retrieved_docs": [{"content": "예산 결의 완료"}]
+    }
+
+    result = analyst_service(input_state)
+
+    assert "summary" in result
+```
+
+---
+
+## 🚀 핵심 구조 요약
+
+```text
+각 도메인은 독립적으로 개발한다
+→ SharedState를 통해 연결된다
+→ Supervisor가 전체 흐름을 제어한다
+```
+
+---
+
+## 🔥 한 줄 핵심
+
+> "도메인은 자기 Key만 책임지고, SharedState로 협력한다"

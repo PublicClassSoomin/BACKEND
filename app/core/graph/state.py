@@ -13,6 +13,9 @@ class SharedState(TypedDict):
     # Knowledge 도메인 (Researcher)
     search_query: str            # 검색을 위한 쿼리
     retrieved_docs: List[dict]   # 검색된 과거/외부 문서 리스트
+    chat_history: Annotated[List[dict], operator.add] # [{"role": "user", "content": "..."}, {"role": "assistant", "content": "..."}]
+    user_question: str           # 사용자가 챗봇에게 던진 질문
+    chat_response: str           # 챗봇의 최종 답변
     
     # Intelligence 도메인 (Analyst)
     summary: str                 # 요약 결과
