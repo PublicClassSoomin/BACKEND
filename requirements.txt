@@ -1,0 +1,36 @@
+# Web Framework
+fastapi
+uvicorn[standard]
+python-multipart
+
+# AI & Agents
+langchain
+langchain-openai
+langchain-anthropic
+langgraph
+langsmith
+openai
+anthropic
+
+# Search & Tools
+tavily-python
+python-jose[cryptography]
+passlib[bcrypt]
+
+# Database & ORM
+sqlalchemy
+psycopg2-binary
+pydantic-settings
+pydantic[email]
+
+# Vector DB (선택한 것 위주로 사용)
+pinecone-client
+pymilvus
+
+# Utils & Formatting
+python-dotenv
+httpx
+black
+isort
+pre-commit
+pytest
