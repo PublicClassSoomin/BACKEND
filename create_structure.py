@@ -20,6 +20,9 @@ structure = {
             }
         },
         "domains": {
+            "user": {},         # 추가: 인증 및 음성 프로필
+            "workspace": {},    # 추가: 워크스페이스/멤버 관리
+            "integration": {},  # 추가: OAuth 및 외부 연동
             "meeting": {},
             "intelligence": {},
             "vision": {},
@@ -28,14 +31,15 @@ structure = {
             "quality": {}
         },
         "infra": {
+            "database": {},
+            "llm": {},
+            "vector_db": {},
             "clients": {
-                "google.py": "", # Google Calendar API 클라이언트
-                "jira.py": "",   # JIRA API 클라이언트
-                "slack.py": "",  # Slack API 클라이언트
+                "google.py": "",
+                "jira.py": "",
+                "slack.py": ""
             },
-            "websocket": {
-                "manager.py": "" # 실시간 회의 스트리밍 관리자
-            }
+            "websocket": {"manager.py": ""}
         }
     },
     "tests": {},
