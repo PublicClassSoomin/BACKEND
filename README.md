@@ -8,14 +8,14 @@
 
 각 도메인은 `app/domains/{domain_name}/` 폴더 내에 아래 6개 파일을 기본으로 구성합니다.
 
-| 파일명          | 역할                       | 비고                                       |
-| :-------------- | :------------------------- | :----------------------------------------- |
-| `agent_utils.py`| **Prompt store**           | LLM Prompt를 정의        |
-| `models.py`     | **Database Entity**        | SQLAlchemy를 이용한 DB 테이블 정의         |
-| `schemas.py`    | **Data Contract (DTO)**    | Pydantic을 이용한 입출력 규격 정의         |
-| `repository.py` | **Data Access (Hand)**     | 순수 DB CRUD 로직 (비즈니스 로직 금지)     |
-| `service.py`    | **Business Logic (Brain)** | 에이전트 호출, 데이터 가공, 타 도메인 협업 |
-| `router.py`     | **API Endpoint (Door)**    | 외부 요청 수신 및 서비스 연결              |
+| 파일명           | 역할                       | 비고                                       |
+| :--------------- | :------------------------- | :----------------------------------------- |
+| `agent_utils.py` | **Prompt store**           | LLM Prompt를 정의                          |
+| `models.py`      | **Database Entity**        | SQLAlchemy를 이용한 DB 테이블 정의         |
+| `schemas.py`     | **Data Contract (DTO)**    | Pydantic을 이용한 입출력 규격 정의         |
+| `repository.py`  | **Data Access (Hand)**     | 순수 DB CRUD 로직 (비즈니스 로직 금지)     |
+| `service.py`     | **Business Logic (Brain)** | 에이전트 호출, 데이터 가공, 타 도메인 협업 |
+| `router.py`      | **API Endpoint (Door)**    | 외부 요청 수신 및 서비스 연결              |
 
 ---
 
@@ -276,16 +276,17 @@ pytest tests/domains/meeting
 
 각 담당자는 본인 도메인 폴더(`app/domains/{domain}/`) 내의 로직을 책임지며,
 **SharedState에서 본인 영역의 Key만 업데이트**합니다.
-
-| 도메인 | 핵심 기능 및 웹 서비스 역할 | 관리 데이터 (SharedState Key) |
-|--------|----------------------------|------------------------------|
-| System (Context) | [온보딩/설정]<br>워크스페이스 및 개별 회의 세션의 고유 식별자 관리.<br>외부 서비스(Jira, Slack 등)의 OAuth 연동 설정 정보 보유. | workspace_id, meeting_id, next_node, current_scenario |
-| Meeting (Scribe) | [회의 중]<br>실시간 음성-텍스트 변환(STT) 및 화자 분리 발화 스트림 생성.<br>웹에서 설정된 **안건(agenda)**을 기반으로 회의 흐름을 추적함. | transcript, agenda |
-| Knowledge (Researcher) | [웹 챗봇] [회의 중/후]<br>즉석 자료 검색 패널 대응 및 과거 회의록 RAG 검색.<br>사용자 질문에 대한 챗봇 답변 생성 및 맥락 유지. | search_query, retrieved_docs, chat_history, user_question, chat_response |
-| Intelligence (Analyst) | [회의 전/후]<br>이전 회의 맥락 요약 제공.<br>최종 회의록/결정사항 도출.<br>회의 전체 대화와 검색된 문서를 결합하여 분석 수행. | summary, decisions, previous_context |
-| Vision (Interpreter) | [회의 중]<br>공유된 화면이나 캡처.<br>이미지의 비전 분석 결과 제공.<br>OCR을 통해 화면 내 텍스트와 발표 맥락을 결합함. | screenshot_analysis |
-| Action (Architect) | [회의 중/후]<br>실시간 액션 아이템 감지.<br>최종 WBS/태스크 리스트 생성.<br>Jira, 캘린더 등 외부 서비스 연동용 데이터 링크 생성. | wbs, realtime_actions, external_links |
-| Quality (QA/Ops) | [시스템]<br>에이전트가 도출한 결과물(요약, WBS 등)의 정확도 검증 및 전체 프로세스 에러 모니터링. | integration_settings, accuracy_score, errors |                                                       |
+| 도메인 | 핵심 기능 및 웹 서비스 역할 | 관리 데이터 (SharedState Key) | 사용 DB |
+|--------|----------------------------|------------------------------|--------|
+| Integration (System) | [온보딩/설정] 워크스페이스/회의 고유 식별자 관리 및 외부 서비스(Jira 등) OAuth 연동 정보 보유. | workspace_id, meeting_id, next_node, current_scenario | PostgreSQL |
+| User | [인증] 회원가입, 로그인, 음성 지문(Voice Fingerprint) 등록 및 화자 분리용 프로필 관리. | user_id (세션 관리용) | PostgreSQL |
+| Workspace | [팀 관리] 워크스페이스 멤버 권한 및 팀별 맞춤 설정 관리. | workspace_id | PostgreSQL |
+| Meeting (Scribe) | [회의 중] 실시간 STT 및 화자 분리 발화 스트림 생성. 안건(agenda) 기반 흐름 추적. | transcript, agenda | Redis, PostgreSQL |
+| Knowledge (Researcher) | [검색] 즉석 자료 검색 및 과거 회의록 RAG 검색. 사용자별 개별 질문 답변 생성. | search_query, retrieved_docs, chat_history, user_question, chat_response | Pinecone |
+| Intelligence (Analyst) | [분석/제어] 요약본 및 결정사항 도출. 전체 그래프 흐름(Supervisor) 순서 및 분기 계산. | summary, decisions, previous_context | PostgreSQL |
+| Vision (Interpreter) | [비전 분석] 공유 화면/이미지 OCR 및 발표 맥락 해석 결과 제공. | screenshot_analysis | PostgreSQL, S3 |
+| Action (Architect) | [실행/변환] 실시간 액션 아이템 감지, WBS 생성. 문서(Excel, PDF 등) 변환 및 다운로드 링크 생성. | wbs, realtime_actions, external_links | PostgreSQL, S3 |
+| Quality (QA/Ops) | [품질/모니터링] 결과물 정확도 검증 및 전체 프로세스 에러/지연 모니터링. | integration_settings, accuracy_score, errors | PostgreSQL |
 
 ---
 
@@ -387,3 +388,12 @@ def test_analyst():
 ## 🔥 한 줄 핵심
 
 > "도메인은 자기 Key만 책임지고, SharedState로 협력한다"
+
+| 담당자                 | 담당 영역 (도메인 폴더 및 로직)                 | 핵심 미션                                                                                           |
+| ---------------------- | ----------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| 인원 1 (PM/Architect)  | System(Supervisor 로직) + User + Workspace 중간 | 전체 흐름 설계자. supervisor.py의 판단 로직을 짜고, 회원가입/팀 생성 등 서비스의 입구를 만듭니다.   |
+| 인원 2 (Audio AI)      | Meeting (Scribe) 중간                           | 데이터 공급자. STT 엔진을 연결하고 실시간 발화 데이터를 Redis와 DB에 안정적으로 쌓는 역할을 합니다. |
+| 인원 3 (Search/RAG)    | Knowledge (Researcher) 쉬움                     | 정보 검색가. Pinecone 연동 및 RAG 로직을 구축하여 에이전트가 과거 기록을 정확히 찾아오게 합니다.    |
+| 인원 4 (NLP/Analyst)   | Intelligence (Analyst) 쉬움                     | 분석가. 요약, 결정사항 추출 등 핵심 LLM 프롬프트를 설계하고 분석 결과의 품질을 책임집니다.          |
+| 인원 5 (Action/DevOps) | Action (Architect) + Integration 어려움         | 해결사. WBS 생성, 엑셀/PDF 변환, Jira/Slack API 연동 및 실제 파일 다운로드 시스템을 구축합니다.     |
+| 인원 6 (Vision/QA)     | Vision (Interpreter) + Quality (QA/Ops) 중간    | 감시자. 화면 OCR 분석과 함께 시스템 전체의 에러 모니터링, 결과물 정확도 검증 로직을 담당합니다.     |
