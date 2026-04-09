@@ -1,7 +1,8 @@
 # app\main.py
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api.v1.api_router import api_router
+# 각 도메인에서 router 만들어서 연결해주세요.
+# from app.api.v1.api_router import api_router
 from app.core.lifespan import lifespan
 
 app = FastAPI(title="Meeting Assistant Agent API", lifespan=lifespan)
