@@ -1,33 +1,36 @@
 # Web Framework
-fastapi
-uvicorn[standard]
-python-multipart
+fastapi==0.135.3
+uvicorn[standard]==0.44.0
+python-multipart==0.0.24
 
 # AI & Agents
-langchain
-langchain-openai
-langchain-anthropic
-langgraph
-langsmith
-openai
-anthropic
+langchain==1.2.15
+langchain-openai==1.1.12
+langchain-anthropic==1.4.0
+langgraph==1.1.6
+langsmith==0.7.26
+openai==2.30.0
+anthropic==0.89.0
 
 # Search & Tools
-tavily-python
-python-jose[cryptography]
-passlib[bcrypt]
+tavily-python==0.7.23
+python-jose[cryptography]==3.5.0
+passlib[bcrypt]==1.7.4
 
 # Database & ORM
-sqlalchemy
-psycopg2-binary
-pydantic-settings
-pydantic[email]
+sqlalchemy==2.0.49
+PyMySQL==1.1.1
+pydantic-settings==2.13.1
+pydantic[email]==2.12.5
 
-# Vector DB (선택한 것 위주로 사용)
-pinecone-client
-pymilvus
+# Vector DB
+pinecone-client==6.0.0
+pymilvus==2.6.11
+
+# Cache
+redis==7.4.0
 
 # Utils & Formatting
-python-dotenv
-httpx
-pytest
+python-dotenv==1.2.2
+httpx==0.28.1
+pytest==9.0.2

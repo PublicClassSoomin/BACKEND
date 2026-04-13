@@ -9,10 +9,11 @@ class Settings(BaseSettings):
     """
     # 1. 시스템 기본 설정
     ENV : str = "dev"
+    DEBUG : bool
     DATABASE_URL: Optional[str] = None
     SECRET_KEY: str = "secret_key"
     ALGORITHM: str = "HS256"
-
+    REDIS_URL: str = "redis://localhost:6379"
     # 2. AI 
     OPENAI_API_KEY: Optional[str] = None
     TAVILY_API_KEY: Optional[str] = None
