@@ -32,9 +32,15 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.lifespan import lifespan
+from app.db.session import Base, engine
+from app.domains.user.models import User
 from app.domains.user.router import router as user_router
 
+
 app = FastAPI(title="Meeting Assistant Agent API", lifespan=lifespan)
+
+# 등록된 모델을 기준으로 필요한 테이블을 생성합니다.
+Base.metadata.create_all(bind=engine)
 
 app.add_middleware(
     CORSMiddleware,
@@ -56,4 +62,3 @@ async def health_check():
 
 
 app.include_router(user_router, prefix="/api/v1/users", tags=["Users"])
-

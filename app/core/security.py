@@ -17,14 +17,11 @@ def hash_password(password: str) -> str:
     """
     평문 비밀번호를 해시 처리합니다.
 
-    DB에는 원본 비밀번호를 그대로 저장하면 안 되므로,
-    회원가입 시 이 함수를 사용해서 해시된 문자열로 변환합니다.
+    DB에는 원본 비밀번호를 그대로 저장하면 안 되므로, 회원가입 시 이 함수를 사용해서 해시된 문자열로 변환합니다.
 
-    Args:
-        password: 사용자가 입력한 원본 비밀번호입니다.
+    Args: password: 사용자가 입력한 원본 비밀번호입니다.
 
-    Returns:
-        bcrypt 방식으로 해시된 비밀번호 문자열을 반환합니다.
+    Returns: bcrypt 방식으로 해시된 비밀번호 문자열을 반환합니다.
     """
     return pwd_context.hash(password)
 
@@ -92,8 +89,7 @@ def create_refresh_token(
     """
     refresh token을 생성합니다.
 
-    refresh token은 access token이 만료되었을 때
-    새 access token을 발급받는 용도로 사용합니다.
+    refresh token은 access token이 만료되었을 때 새 access token을 발급받는 용도로 사용합니다.
 
     Args:
         subject: 토큰의 주체가 되는 사용자 식별값입니다.
@@ -119,12 +115,8 @@ def create_refresh_token(
     )
 
 """
-hash_password()
-회원가입할 때 비밀번호를 암호화된 문자열로 바꿉니다.
-verify_password()
-로그인할 때 입력 비밀번호가 맞는지 확인합니다.
-create_access_token()
-로그인 성공 후 짧게 쓰는 토큰을 만듭니다.
-create_refresh_token()
-access token 재발급용 긴 토큰을 만듭니다.
+- hash_password(): 회원가입할 때 비밀번호를 암호화된 문자열로 바꿉니다.
+- verify_password(): 그인할 때 입력 비밀번호가 맞는지 확인합니다.
+- create_access_token(): 로그인 성공 후 짧게 쓰는 토큰을 만듭니다.
+- create_refresh_token(): access token 재발급용 긴 토큰을 만듭니다.
 """

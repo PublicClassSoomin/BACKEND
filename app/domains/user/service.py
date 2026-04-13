@@ -1,5 +1,31 @@
-# app\domains\user\service.py
+"""
+사용자 도메인의 비즈니스 로직을 처리하는 파일입니다.
 
+service 계층은 인증 기능의 전체 처리 흐름을 담당합니다.
+즉, 요청을 직접 받지는 않지만,
+회원가입과 로그인 시 어떤 순서로 검증하고 저장하고 응답할지 결정합니다.
+
+현재 구현 범위는 다음과 같습니다.
+- 관리자 회원가입
+- 멤버 회원가입
+- 로그인
+- 비밀번호 재설정 요청
+- 비밀번호 변경 요청
+
+이 파일은 repository 계층을 호출하여 실제 DB 조회/저장을 수행하고,
+security 계층을 호출하여 비밀번호 해시 및 토큰 발급을 처리합니다.
+"""
+
+from fastapi import HTTPException, status
+from sqlalchemy.orm import Session
+
+from app.core.security import (
+    create_access_token,
+    create_refresh_token,
+    hash_password,
+    verify_password,
+)
+from app.domains.user.repository import create_user, get_user_by_email
 from app.domains.user.schemas import (
     AdminSignupRequest,
     LoginRequest,
@@ -13,64 +39,132 @@ from app.domains.user.schemas import (
 )
 
 
-def signup_admin_service(payload: AdminSignupRequest) -> UserResponse:
+def signup_admin_service(db: Session, payload: AdminSignupRequest) -> UserResponse:
     """
     관리자 회원가입 요청을 처리합니다.
 
-    현재 단계에서는 실제 DB 저장 없이,
-    요청으로 전달된 값을 기반으로 예시 사용자 정보를 생성하여 반환합니다.
+    처리 순서는 다음과 같습니다.
+    1. 이메일 중복 여부를 확인합니다.
+    2. 비밀번호를 해시 처리합니다.
+    3. 관리자 역할로 사용자를 생성합니다.
+    4. 저장된 사용자 정보를 응답 형식으로 반환합니다.
 
     Args:
+        db: 데이터베이스 세션입니다.
         payload: 관리자 회원가입 요청 데이터입니다.
 
     Returns:
-        관리자 역할이 포함된 사용자 응답 데이터를 반환합니다.
+        저장이 완료된 관리자 사용자 응답 데이터를 반환합니다.
     """
-    return UserResponse(
-        id=1,
+    existing_user = get_user_by_email(db, payload.email)
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="이미 사용 중인 이메일입니다.",
+        )
+
+    hashed_password = hash_password(payload.password)
+
+    user = create_user(
+        db=db,
         email=payload.email,
+        hashed_password=hashed_password,
         name=payload.name,
-        role=UserRole.ADMIN,
+        role=UserRole.ADMIN.value,
+    )
+
+    return UserResponse(
+        id=user.id,
+        email=user.email,
+        name=user.name,
+        role=UserRole(user.role),
     )
 
 
-def signup_member_service(payload: MemberSignupRequest) -> UserResponse:
+def signup_member_service(db: Session, payload: MemberSignupRequest) -> UserResponse:
     """
     멤버 회원가입 요청을 처리합니다.
 
-    현재 단계에서는 초대코드의 실제 유효성 검사나 워크스페이스 참여 처리 없이,
-    예시 멤버 사용자 정보를 생성하여 반환합니다.
+    현재 단계에서는 초대코드의 실제 유효성 검증 없이,
+    기본 회원가입 흐름만 먼저 구현합니다.
+
+    처리 순서는 다음과 같습니다.
+    1. 이메일 중복 여부를 확인합니다.
+    2. 비밀번호를 해시 처리합니다.
+    3. 멤버 역할로 사용자를 생성합니다.
+    4. 저장된 사용자 정보를 응답 형식으로 반환합니다.
 
     Args:
+        db: 데이터베이스 세션입니다.
         payload: 멤버 회원가입 요청 데이터입니다.
 
     Returns:
-        멤버 역할이 포함된 사용자 응답 데이터를 반환합니다.
+        저장이 완료된 멤버 사용자 응답 데이터를 반환합니다.
     """
-    return UserResponse(
-        id=2,
+    existing_user = get_user_by_email(db, payload.email)
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="이미 사용 중인 이메일입니다.",
+        )
+
+    hashed_password = hash_password(payload.password)
+
+    user = create_user(
+        db=db,
         email=payload.email,
+        hashed_password=hashed_password,
         name=payload.name,
-        role=UserRole.MEMBER,
+        role=UserRole.MEMBER.value,
+    )
+
+    return UserResponse(
+        id=user.id,
+        email=user.email,
+        name=user.name,
+        role=UserRole(user.role),
     )
 
 
-def login_service(payload: LoginRequest) -> TokenResponse:
+def login_service(db: Session, payload: LoginRequest) -> TokenResponse:
     """
     로그인 요청을 처리합니다.
 
-    현재 단계에서는 실제 사용자 인증 없이,
-    access token과 refresh token 형식의 예시 데이터를 반환합니다.
+    처리 순서는 다음과 같습니다.
+    1. 이메일로 사용자를 조회합니다.
+    2. 사용자가 존재하는지 확인합니다.
+    3. 입력한 비밀번호와 저장된 해시 비밀번호를 비교합니다.
+    4. 인증 성공 시 access token과 refresh token을 발급합니다.
 
     Args:
+        db: 데이터베이스 세션입니다.
         payload: 로그인 요청 데이터입니다.
 
     Returns:
-        예시 토큰 응답 데이터를 반환합니다.
+        발급된 토큰 응답 데이터를 반환합니다.
     """
+    user = get_user_by_email(db, payload.email)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="이메일 또는 비밀번호가 올바르지 않습니다.",
+        )
+
+    if not verify_password(payload.password, user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="이메일 또는 비밀번호가 올바르지 않습니다.",
+        )
+
+    access_token = create_access_token(
+        subject=str(user.id),
+        extra_claims={"role": user.role},
+    )
+    refresh_token = create_refresh_token(subject=str(user.id))
+
     return TokenResponse(
-        access_token=f"access-token-for-{payload.email}",
-        refresh_token=f"refresh-token-for-{payload.email}",
+        access_token=access_token,
+        refresh_token=refresh_token,
     )
 
 
@@ -80,8 +174,8 @@ def request_password_reset_service(
     """
     비밀번호 재설정 메일 발송 요청을 처리합니다.
 
-    현재 단계에서는 실제 메일 발송 없이,
-    요청 접수 완료 메시지만 반환합니다.
+    현재 단계에서는 실제 메일 전송 기능 없이,
+    요청 접수 메시지만 반환합니다.
 
     Args:
         payload: 비밀번호 재설정 메일 발송 요청 데이터입니다.
@@ -98,7 +192,7 @@ def change_password_service(payload: PasswordChangeRequest) -> MessageResponse:
     """
     비밀번호 변경 요청을 처리합니다.
 
-    현재 단계에서는 실제 토큰 검증 및 비밀번호 저장 없이,
+    현재 단계에서는 실제 토큰 검증 및 DB 비밀번호 변경 없이,
     변경 완료 메시지만 반환합니다.
 
     Args:

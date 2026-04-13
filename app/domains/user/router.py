@@ -1,7 +1,27 @@
-# app\domains\user\router.py
+"""
+사용자 도메인의 API 엔드포인트를 정의하는 파일입니다.
 
-from fastapi import APIRouter, status
+router 계층은 클라이언트의 요청을 직접 받고,
+검증된 요청 데이터를 service 계층으로 전달하는 역할을 합니다.
 
+현재는 인증 기능과 관련된 엔드포인트를 먼저 구성합니다.
+- 관리자 회원가입
+- 멤버 회원가입
+- 로그인
+- 비밀번호 재설정 요청
+- 비밀번호 변경 요청
+
+이제 요청 하나가 들어오면:
+FastAPI가 get_db()로 DB 세션을 만듦
+router.py가 그 세션을 받음
+service.py에 넘김
+service가 repository로 DB 작업
+"""
+
+from fastapi import APIRouter, Depends, status
+from sqlalchemy.orm import Session
+
+from app.db.session import get_db
 from app.domains.user.schemas import (
     AdminSignupRequest,
     LoginRequest,
@@ -29,20 +49,24 @@ router = APIRouter()
     response_model=UserResponse,
     status_code=status.HTTP_201_CREATED,
 )
-async def signup_admin(payload: AdminSignupRequest) -> UserResponse:
+async def signup_admin(
+    payload: AdminSignupRequest,
+    db: Session = Depends(get_db),
+) -> UserResponse:
     """
     관리자 회원가입 요청을 처리하는 API 엔드포인트입니다.
 
     요청 데이터 검증은 Pydantic 스키마가 담당하고,
-    실제 처리 로직은 service 계층에 위임합니다.
+    실제 회원가입 처리 로직은 service 계층에 위임합니다.
 
     Args:
         payload: 관리자 회원가입 요청 데이터입니다.
+        db: 요청에 사용되는 데이터베이스 세션입니다.
 
     Returns:
         회원가입 처리 결과 사용자 정보를 반환합니다.
     """
-    return signup_admin_service(payload)
+    return signup_admin_service(db, payload)
 
 
 @router.post(
@@ -50,17 +74,21 @@ async def signup_admin(payload: AdminSignupRequest) -> UserResponse:
     response_model=UserResponse,
     status_code=status.HTTP_201_CREATED,
 )
-async def signup_member(payload: MemberSignupRequest) -> UserResponse:
+async def signup_member(
+    payload: MemberSignupRequest,
+    db: Session = Depends(get_db),
+) -> UserResponse:
     """
     멤버 회원가입 요청을 처리하는 API 엔드포인트입니다.
 
     Args:
         payload: 멤버 회원가입 요청 데이터입니다.
+        db: 요청에 사용되는 데이터베이스 세션입니다.
 
     Returns:
         회원가입 처리 결과 사용자 정보를 반환합니다.
     """
-    return signup_member_service(payload)
+    return signup_member_service(db, payload)
 
 
 @router.post(
@@ -68,17 +96,21 @@ async def signup_member(payload: MemberSignupRequest) -> UserResponse:
     response_model=TokenResponse,
     status_code=status.HTTP_200_OK,
 )
-async def login(payload: LoginRequest) -> TokenResponse:
+async def login(
+    payload: LoginRequest,
+    db: Session = Depends(get_db),
+) -> TokenResponse:
     """
     로그인 요청을 처리하는 API 엔드포인트입니다.
 
     Args:
         payload: 로그인 요청 데이터입니다.
+        db: 요청에 사용되는 데이터베이스 세션입니다.
 
     Returns:
         로그인 처리 결과 토큰 정보를 반환합니다.
     """
-    return login_service(payload)
+    return login_service(db, payload)
 
 
 @router.post(
