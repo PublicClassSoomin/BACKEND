@@ -1,7 +1,7 @@
 # app\infra\clients\jira.py
 import logging
 from typing import Dict, Any, List
-from .n8n import N8NClient
+from .n8n import N8nClient
 
 logger = logging.getLogger(__name__)
 
@@ -11,7 +11,7 @@ class JiraClient:
     직접 JIRA API를 호출하지 않고, n8n 웹훅에게 위임
     """
     def __init__(self):
-        self.n8n = N8NClient()
+        self.n8n = N8nClient()
 
     async def create_issue(
             self, webhook_url: str, issue_data: Dict[str, Any]
@@ -51,4 +51,4 @@ class JiraClient:
             "action": "create_issues_bulk",
             "data": {"issues": issues}
         }
-        return self.n8n.trigger_webhook(webhook_url, payload)
+        return await self.n8n.trigger_webhook(webhook_url, payload)
