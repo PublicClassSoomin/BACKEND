@@ -1,38 +1,57 @@
-# app\infra\clients\slack.py
+# app/infra/clients/slack.py
 import logging
-from typing import Dict, Any, Optional, List
-from .base import BaseClient
-from .session_manager import ClientSessionManager
-from app.core.config import settings
+from typing import Dict, Any
+from .n8n import N8nClient
 
 logger = logging.getLogger(__name__)
 
-class SlackAsyncClient(BaseClient):
+class SlackClient:
     """
-    슬랙 메시지 발송을 담당하는 비동기 클라이언트
+    Slack 연동 클라이언트
+    직접 Slack API 호출하지 않고 n8n 웹훅으로 연동
     """
     def __init__(self):
-        # 슬랙 API 기본주소를 설정하지만, 웹훅 사용 시에는 호출 시 주소를 직접 전달받음.
-        super().__init__(base_url="https://slack.com/api")
+        self.n8n = N8nClient()
 
-    async def send_via_webhook(self, text: str, blocks: Optional[List[Dict[str, Any]]] = None) -> bool:
+    async def send_message(
+            self, webhook_url: str, message_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """
-        .env에 설정된 Webhook으로 메시지(또는 블록)를 보냅니다.
+        Slack n8n으로 메세지 전송
+
+        args:
+            webhook_url: integrations.extra_config['webhook_url']
+            message_data: {
+                "chaneel_id": "C1234567",
+                "message": "회의록 검토 요청",
+                "link_url": "http://서비스URL/meetings/1/minutes"
+            }
         """
-        webhook_url = settings.SLACK_WEBHOOK_URL
-        if not webhook_url:
-            return False
+        payload = {
+            "action": "send_message",
+            "data": message_data
+        }
+        return await self.n8n.trigger_webhook(webhook_url, payload)
+    
+    async def export_minutes(
+            self, webhook_url: str, export_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        회의록을 Slack 채널로 내보내기 요청을 n8n에 위임
 
-        # 블록이 있으면 블록을 우선해서 보냅니다.
-        payload = {"text": text}
-        if blocks:
-            payload["blocks"] = blocks
+        args:
+            webhook_url: integrations.extra_config['webhook_url']
+            export_data: {
+                "channel_id": "C1234567",
+                "content": "회의록 전문",
+                "include_action_items": true
+            }
+        """
+        payload = {
+            "action": "export_minutes",
+            "data": export_data
+        }
 
-        try:
-            client = await ClientSessionManager.get_client()
-            response = await client.post(webhook_url, json=payload)
-            response.raise_for_status()
-            return True
-        except Exception as e:
-            logger.error(f"슬랙 전송 실패: {e}")
-            raise e
+        return self.n8n.trigger_webhook(webhook_url, payload)
+
+        
