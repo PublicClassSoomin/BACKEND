@@ -5,7 +5,7 @@ from .n8n import N8nClient
 
 logger = logging.getLogger(__name__)
 
-class GoogleCalenderClient:
+class GoogleCalendarClient:
     """
     Google Calendar 연동 클라이언트.
     직접 Google API를 호출하지 않고 n8n 웹혹으로 함.

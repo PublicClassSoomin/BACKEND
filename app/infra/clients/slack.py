@@ -52,6 +52,6 @@ class SlackClient:
             "data": export_data
         }
 
-        return self.n8n.trigger_webhook(webhook_url, payload)
+        return await self.n8n.trigger_webhook(webhook_url, payload)
 
         

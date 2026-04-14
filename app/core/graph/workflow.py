@@ -3,6 +3,15 @@
 from langgraph.graph import StateGraph, END
 from app.core.graph.state import SharedState
 from app.core.graph.supervisor import supervisor_node
+from app.domains.integration.service import load_integration_settings
+from app.infra.database.session import SessionLocal
+
+async def integration_node(state: SharedState) -> dict:
+    db = SessionLocal()
+    try:
+        return await load_integration_settings(state, db)
+    finally:
+        db.close()
 
 workflow = StateGraph(SharedState)
 
@@ -15,6 +24,7 @@ workflow.add_node("intelligence", lambda state: {"next_node": "supervisor"})
 workflow.add_node("vision", lambda state: {"next_node": "supervisor"})
 workflow.add_node("action", lambda state: {"next_node": "supervisor"})
 workflow.add_node("quality", lambda state: {"next_node": "supervisor"})
+workflow.add_node("integration", integration_node)
 
 # 2. 시작점
 workflow.set_entry_point("supervisor")
@@ -30,12 +40,13 @@ workflow.add_conditional_edges(
         "vision": "vision",
         "action": "action",
         "quality": "quality",
+        "integration": "integration",
         "end": END,
     }
 )
 
 # 4. 모든 노드는 작업 후 Supervisor로 복귀
-for node in ["meeting", "knowledge", "intelligence", "vision", "action", "quality"]:
+for node in ["meeting", "knowledge", "intelligence", "vision", "action", "quality", "integration"]:
     workflow.add_edge(node, "supervisor")
 
 # 5. 컴파일

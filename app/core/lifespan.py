@@ -5,6 +5,7 @@ from app.infra.clients.session_manager import ClientSessionManager
 from app.infra.database.base import Base
 from app.infra.database.session import engine
 from app.core.config import settings
+from scripts.seed import seed_test_data
 
 # 모든 모델을 import해야 Base가 테이블을 인식함
 from app.domains.user.models import User
@@ -22,6 +23,9 @@ async def lifespan(app: FastAPI):
 
     Base.metadata.create_all(bind=engine)
     print("✅  테이블 생성 완료")
+
+    if settings.DEBUG:
+        seed_test_data()
 
     # [시작 시] HTTP 클라이언트 세션 초기화
     await ClientSessionManager.get_client()
