@@ -51,4 +51,4 @@ class JiraClient:
             "action": "create_issues_bulk",
             "data": {"issues": issues}
         }
-        return 
+        return self.n8n.trigger_webhook(webhook_url, payload)
