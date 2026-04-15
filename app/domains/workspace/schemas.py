@@ -1,1 +1,46 @@
 # app\domains\workspace\schemas.py
+from pydantic import BaseModel
+from datetime import date, datetime
+from typing import Optional
+
+
+class MeetingItem(BaseModel):
+    id: int
+    title: str
+    status: str
+    scheduled_at: Optional[datetime] = None
+    started_at: Optional[datetime] = None
+    ended_at: Optional[datetime] = None
+
+    model_config = {"from_attributes": True}
+
+
+class MeetingsGroup(BaseModel):
+    in_progress: list[MeetingItem] = []
+    scheduled: list[MeetingItem] = []
+    done: list[MeetingItem] = []
+
+
+class WeeklySummary(BaseModel):
+    total_count: int = 0
+    total_duration_min: float = 0.0
+    summary_cards: list = []
+
+
+class PendingActionItemResponse(BaseModel):
+    id: int
+    content: str
+    due_date: Optional[date] = None
+    meeting_title: str
+
+
+class NextMeetingSuggestion(BaseModel):
+    suggested_at: datetime
+    reason: str
+
+
+class DashboardResponse(BaseModel):
+    meetings: MeetingsGroup
+    weekly_summary: WeeklySummary
+    pending_action_items: list[PendingActionItemResponse] = []
+    next_meeting_suggestion: Optional[NextMeetingSuggestion] = None

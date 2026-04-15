@@ -92,14 +92,36 @@ INSERT INTO integrations (id, workspace_id, service, access_token, refresh_token
   (5, 5, 'kakao',          NULL, NULL, NULL, JSON_OBJECT('scope','basic'), 0, NOW());
 
 -- -------------------------------------------------------------------
--- meetings (5)
+-- meetings
 -- -------------------------------------------------------------------
 INSERT INTO meetings (id, workspace_id, created_by, title, meeting_type, status, scheduled_at, started_at, ended_at, google_calendar_event_id, created_at, updated_at) VALUES
   (1, 1, 1, 'Kickoff Meeting',        'kickoff',   'scheduled',  DATE_ADD(NOW(), INTERVAL 1 DAY),  NULL, NULL, NULL, NOW(), NOW()),
   (2, 2, 2, 'Weekly Sync',            'weekly',    'in_progress',DATE_SUB(NOW(), INTERVAL 1 HOUR), DATE_SUB(NOW(), INTERVAL 50 MINUTE), NULL, NULL, NOW(), NOW()),
   (3, 3, 3, 'Product Review',         'review',    'done',       DATE_SUB(NOW(), INTERVAL 7 DAY),  DATE_SUB(NOW(), INTERVAL 7 DAY),  DATE_SUB(NOW(), INTERVAL 7 DAY) + INTERVAL 1 HOUR, NULL, NOW(), NOW()),
   (4, 4, 4, 'Customer Feedback',      'feedback',  'scheduled',  DATE_ADD(NOW(), INTERVAL 3 DAY),  NULL, NULL, NULL, NOW(), NOW()),
-  (5, 5, 5, 'Engineering Retrospect', 'retro',     'done',       DATE_SUB(NOW(), INTERVAL 14 DAY), DATE_SUB(NOW(), INTERVAL 14 DAY), DATE_SUB(NOW(), INTERVAL 14 DAY) + INTERVAL 45 MINUTE, NULL, NOW(), NOW());
+  (5, 5, 5, 'Engineering Retrospect', 'retro',     'done',       DATE_SUB(NOW(), INTERVAL 14 DAY), DATE_SUB(NOW(), INTERVAL 14 DAY), DATE_SUB(NOW(), INTERVAL 14 DAY) + INTERVAL 45 MINUTE, NULL, NOW(), NOW()),
+
+  -- Workspace 1: make dashboard lists non-empty (5 each)
+  -- scheduled (5)
+  (6,  1, 1, 'WS1 Scheduled #1', 'sync', 'scheduled',  DATE_ADD(NOW(), INTERVAL 2 DAY), NULL, NULL, NULL, NOW(), NOW()),
+  (7,  1, 1, 'WS1 Scheduled #2', 'sync', 'scheduled',  DATE_ADD(NOW(), INTERVAL 3 DAY), NULL, NULL, NULL, NOW(), NOW()),
+  (8,  1, 1, 'WS1 Scheduled #3', 'sync', 'scheduled',  DATE_ADD(NOW(), INTERVAL 4 DAY), NULL, NULL, NULL, NOW(), NOW()),
+  (9,  1, 1, 'WS1 Scheduled #4', 'sync', 'scheduled',  DATE_ADD(NOW(), INTERVAL 5 DAY), NULL, NULL, NULL, NOW(), NOW()),
+  (10, 1, 1, 'WS1 Scheduled #5', 'sync', 'scheduled',  DATE_ADD(NOW(), INTERVAL 6 DAY), NULL, NULL, NULL, NOW(), NOW()),
+
+  -- in_progress (5)
+  (11, 1, 1, 'WS1 InProgress #1', 'daily', 'in_progress', DATE_SUB(NOW(), INTERVAL 30 MINUTE), DATE_SUB(NOW(), INTERVAL 25 MINUTE), NULL, NULL, NOW(), NOW()),
+  (12, 1, 1, 'WS1 InProgress #2', 'daily', 'in_progress', DATE_SUB(NOW(), INTERVAL 60 MINUTE), DATE_SUB(NOW(), INTERVAL 55 MINUTE), NULL, NULL, NOW(), NOW()),
+  (13, 1, 1, 'WS1 InProgress #3', 'daily', 'in_progress', DATE_SUB(NOW(), INTERVAL 90 MINUTE), DATE_SUB(NOW(), INTERVAL 80 MINUTE), NULL, NULL, NOW(), NOW()),
+  (14, 1, 1, 'WS1 InProgress #4', 'daily', 'in_progress', DATE_SUB(NOW(), INTERVAL 120 MINUTE), DATE_SUB(NOW(), INTERVAL 110 MINUTE), NULL, NULL, NOW(), NOW()),
+  (15, 1, 1, 'WS1 InProgress #5', 'daily', 'in_progress', DATE_SUB(NOW(), INTERVAL 150 MINUTE), DATE_SUB(NOW(), INTERVAL 140 MINUTE), NULL, NULL, NOW(), NOW()),
+
+  -- done (5) - ended within last few days to contribute to weekly summary
+  (16, 1, 1, 'WS1 Done #1', 'review', 'done', DATE_SUB(NOW(), INTERVAL 1 DAY), DATE_SUB(NOW(), INTERVAL 1 DAY) - INTERVAL 50 MINUTE, DATE_SUB(NOW(), INTERVAL 1 DAY), NULL, NOW(), NOW()),
+  (17, 1, 1, 'WS1 Done #2', 'review', 'done', DATE_SUB(NOW(), INTERVAL 2 DAY), DATE_SUB(NOW(), INTERVAL 2 DAY) - INTERVAL 45 MINUTE, DATE_SUB(NOW(), INTERVAL 2 DAY), NULL, NOW(), NOW()),
+  (18, 1, 1, 'WS1 Done #3', 'review', 'done', DATE_SUB(NOW(), INTERVAL 3 DAY), DATE_SUB(NOW(), INTERVAL 3 DAY) - INTERVAL 60 MINUTE, DATE_SUB(NOW(), INTERVAL 3 DAY), NULL, NOW(), NOW()),
+  (19, 1, 1, 'WS1 Done #4', 'review', 'done', DATE_SUB(NOW(), INTERVAL 4 DAY), DATE_SUB(NOW(), INTERVAL 4 DAY) - INTERVAL 30 MINUTE, DATE_SUB(NOW(), INTERVAL 4 DAY), NULL, NOW(), NOW()),
+  (20, 1, 1, 'WS1 Done #5', 'review', 'done', DATE_SUB(NOW(), INTERVAL 5 DAY), DATE_SUB(NOW(), INTERVAL 5 DAY) - INTERVAL 40 MINUTE, DATE_SUB(NOW(), INTERVAL 5 DAY), NULL, NOW(), NOW());
 
 -- -------------------------------------------------------------------
 -- meeting_participants (5)
@@ -182,14 +204,21 @@ INSERT INTO review_requests (id, minute_id, requester_id, reviewer_id, notify_sl
   (5, 5, 5, 1, 1, 1, 'pending',  NOW(), NULL);
 
 -- -------------------------------------------------------------------
--- action_items (5)
+-- action_items
 -- -------------------------------------------------------------------
 INSERT INTO action_items (id, meeting_id, content, assignee_id, due_date, status, detected_at, jira_issue_id) VALUES
   (1, 1, 'Create initial project plan', 2, DATE_ADD(CURDATE(), INTERVAL 7 DAY),  'pending',     NOW(), NULL),
   (2, 2, 'Share weekly KPI dashboard',  3, DATE_ADD(CURDATE(), INTERVAL 3 DAY),  'in_progress', NOW(), NULL),
   (3, 3, 'Prepare release checklist',   4, DATE_ADD(CURDATE(), INTERVAL 10 DAY), 'pending',     NOW(), NULL),
   (4, 4, 'Summarize customer feedback', 5, DATE_ADD(CURDATE(), INTERVAL 5 DAY),  'done',        NOW(), NULL),
-  (5, 5, 'Refactor login flow',         1, DATE_ADD(CURDATE(), INTERVAL 14 DAY), 'in_progress', NOW(), NULL);
+  (5, 5, 'Refactor login flow',         1, DATE_ADD(CURDATE(), INTERVAL 14 DAY), 'in_progress', NOW(), NULL),
+
+  -- Workspace 1: pending action items (5)
+  (6, 6,  'WS1 Pending Action #1', 1, DATE_ADD(CURDATE(), INTERVAL 1 DAY),  'pending', NOW(), NULL),
+  (7, 7,  'WS1 Pending Action #2', 1, DATE_ADD(CURDATE(), INTERVAL 2 DAY),  'pending', NOW(), NULL),
+  (8, 8,  'WS1 Pending Action #3', 1, DATE_ADD(CURDATE(), INTERVAL 3 DAY),  'pending', NOW(), NULL),
+  (9, 9,  'WS1 Pending Action #4', 1, DATE_ADD(CURDATE(), INTERVAL 4 DAY),  'pending', NOW(), NULL),
+  (10, 10,'WS1 Pending Action #5', 1, DATE_ADD(CURDATE(), INTERVAL 5 DAY),  'pending', NOW(), NULL);
 
 -- -------------------------------------------------------------------
 -- wbs_epics (5)
