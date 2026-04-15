@@ -2,6 +2,7 @@
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from app.domains.integration.models import Integration, ServiceType
+from datetime import datetime
 
 def get_integrations(db: Session, workspace_id: int) -> List[Integration]:
     """워크스페이스의 전체 연동 목록 조회"""
@@ -57,7 +58,38 @@ def disconnect_integration(
     if integration:
         integration.extra_config = None
         integration.is_connected = False
+        integration.access_token = None
+        integration.refresh_token = None
+        integration.token_expires_at = None
         db.commit()
         db.refresh(integration)
 
+    return integration
+
+def update_tokens(
+        db: Session,
+        workspace_id: int,
+        service: ServiceType,
+        access_token: str,
+        refresh_token: Optional[str] = None,
+        token_expires_at: Optional[datetime] = None,
+        extra_config: Optional[dict] = None,
+) -> Integration:
+    """
+    OAuth token update -> DB CRUD
+    """
+    integration = get_integration(db, workspace_id, service)
+    if not integration:
+        integration = Integration(workspace_id=workspace_id, service=service)
+        db.add(integration)
+
+    integration.access_token = access_token
+    integration.refresh_token = refresh_token
+    integration.token_expires_at = token_expires_at
+    integration.is_connected = True
+    if extra_config:
+        integration.extra_config = extra_config
+    
+    db.commit()
+    db.refresh(integration)
     return integration

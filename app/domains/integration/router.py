@@ -1,5 +1,6 @@
 # app\domains\integration\router.py
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from typing import List
 
@@ -8,12 +9,18 @@ from app.domains.integration.models import ServiceType
 from app.domains.integration.schemas import (
     IntegrationResponse,
     IntegrationListResponse,
-    IntegrationConnectRequest,
-    WebhookTestRequest,
+    JiraConnectRequest,
+    KakaoConnectRequest,
+    OAuthUrlResponse,
 )
-from app.domains.integration import service
+from app.domains.integration import service, repository
+from app.core.config import settings
 
 router = APIRouter()
+
+FRONTEND_INTEGRATIONS = f"{settings.FRONTEND_URL}/settings/integrations"
+
+# --- 목록 조회 / 해제/ 테스트 ---
 
 @router.get("/workspaces/{workspace_id}", response_model=IntegrationListResponse)
 async def get_integrations(workspace_id: int, db: Session = Depends(get_db)):
@@ -24,39 +31,15 @@ async def get_integrations(workspace_id: int, db: Session = Depends(get_db)):
 
     integrations = []
     for item in items:
-        webhook_url = None
-        if item.extra_config:
-            webhook_url = item.extra_config.get("webhook_url")  
         integrations.append(
             IntegrationResponse(
                 id=item.id,
                 service=item.service,
                 is_connected=item.is_connected,
-                webhook_url=webhook_url,
                 updated_at=item.updated_at,
             )
         )
     return IntegrationListResponse(integrations=integrations)
-
-@router.post("/workspaces/{workspace_id}/{service_name}/connect", response_model=IntegrationResponse)
-async def connect_integration(
-    workspace_id: int,
-    service_name: ServiceType,
-    body: IntegrationConnectRequest,
-    db: Session = Depends(get_db),
-):
-    """
-    서비스 연동 등록 - webhook_url 저장
-    """
-    item = service.connect_integration(db, workspace_id, service_name, body.n8n_base_url)
-    webhook_url = item.extra_config.get("webhook_url") if item.extra_config else None
-    return IntegrationResponse(
-        id=item.id,
-        service=item.service,
-        is_connected=item.is_connected,
-        webhook_url=webhook_url,
-        updated_at=item.updated_at,
-    )
 
 @router.post("/workspaces/{workspace_id}/{service_name}/disconnect")
 async def disconnect_integration(
@@ -75,7 +58,6 @@ async def disconnect_integration(
         id=item.id,
         service=item.service,
         is_connected=item.is_connected,
-        webhook_url=None,
         updated_at=item.updated_at,
     )
 
@@ -83,16 +65,84 @@ async def disconnect_integration(
 async def test_webhook(
     workspace_id: int,
     service_name: ServiceType,
-    body: WebhookTestRequest,
     db: Session = Depends(get_db),
 ):
-    """
-    webhook_url 테스트
-    """
-    success = await service.test_webhook(body.webhook_url)
+    """연결 테스트"""
+    success = await service.test_integration(db, workspace_id, service_name)
     if not success:
-        raise HTTPException(status_code=400, detail="webhook 연결 실패")
-    return {
-        "success": True,
-        "message": "webhook 연결 성공"
-    }
+        raise HTTPException(status_code=400, detail="연동 상태 확인 불가")
+    return {"success": True, "message": "webhook 연결 성공"}
+
+# --- Google Calendar OAuth ---
+
+@router.get("/google/auth", response_model=OAuthUrlResponse)
+async def google_auth(workspace_id: int):
+    """
+    프론트에서 URL을 받아 window.location.href로 이동
+    """
+    return OAuthUrlResponse(auth_url=service.get_google_auth_url(workspace_id))
+
+@router.get("/google/callback")
+async def google_callback(code: str, state: str, db: Session = Depends(get_db)):
+    try:
+        workspace_id = await service.handle_google_callback(db, code, state)
+        return RedirectResponse(f"{FRONTEND_INTEGRATIONS}?service=google_calendar&status=connected")
+    except Exception as e:
+        return RedirectResponse(f"{FRONTEND_INTEGRATIONS}?service=google_calendar&status=error")
+
+# --- Slack Auth ---
+
+@router.get("/slack/auth", response_model=OAuthUrlResponse)
+async def slack_auth(workspace_id: int):
+    return OAuthUrlResponse(auth_url=service.get_slack_auth_url(workspace_id))
+
+@router.get("/slack/callback")
+async def slack_callback(code: str, state: str, db: Session = Depends(get_db)):
+    try:
+        await service.handle_slack_callback(db, code, state)
+        return RedirectResponse(f"{FRONTEND_INTEGRATIONS}?service=slack&status=connected")
+    
+    except Exception as e:
+        return RedirectResponse(f"{FRONTEND_INTEGRATIONS}?service=slack&status=error")
+    
+# --- Notion Auth ---
+
+@router.get("/notion/auth", response_model=OAuthUrlResponse)
+async def notion_auth(workspace_id: int):
+    return OAuthUrlResponse(auth_url=service.get_notion_auth_url(workspace_id))
+
+@router.get("/notion/callback")
+async def notion_callback(code: str, state: str, db: Session = Depends(get_db)):
+    try:
+        await service.handle_notion_callback(db, code, state)
+        return RedirectResponse(f"{FRONTEND_INTEGRATIONS}?service=notion&status=connected")
+    except Exception as e:
+        return RedirectResponse(f"{FRONTEND_INTEGRATIONS}?service=notion&status=error")
+
+
+# --- JIRA API Key ---
+
+@router.post("/workspaces/{workspace_id}/jira/connect", response_model=IntegrationResponse)
+async def connect_jira(
+    workspace_id: int, body: JiraConnectRequest, db: Session = Depends(get_db)
+):
+    item = service.connect_jira(
+        db, workspace_id, body.domain, body.email, body.api_token, body.project_key
+    )
+    return IntegrationResponse(
+        id=item.id, service=item.service, is_connected=item.is_connected,
+        updated_at=item.updated_at,
+    )
+
+
+# --- 카카오 API Key ---
+
+@router.post("/workspaces/{workspace_id}/kakao/connect", response_model=IntegrationResponse)
+async def connect_kakao(
+    workspace_id: int, body: KakaoConnectRequest, db: Session = Depends(get_db)
+):
+    item = service.connect_kakao(db, workspace_id, body.api_key)
+    return IntegrationResponse(
+        id=item.id, service=item.service, is_connected=item.is_connected,
+        updated_at=item.updated_at,
+    )

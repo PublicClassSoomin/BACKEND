@@ -21,9 +21,10 @@ class Settings(BaseSettings):
     TAVILY_API_KEY: Optional[str] = None
 
     # 3. Slack
-    SLACK_WEBHOOK_URL: Optional[str] = None
     SLACK_BOT_TOKEN: Optional[str] = None
-    SLACK_DEFAULT_CHANNEL_ID: Optional[str] = None
+    SLACK_CLIENT_ID: Optional[str] = None
+    SLACK_CLIENT_SECRET: Optional[str] = None
+    SLACK_REDIRECT_URI: Optional[str] = "http://localhost:8000/api/v1/integrations/slack/callback"
 
     # 4. JIRA
     JIRA_INSTANCE_URL: Optional[str] = None
@@ -48,6 +49,9 @@ class Settings(BaseSettings):
     # 8. n8n
     N8N_BASE_URL: str = "http://localhost:5678"
     N8N_API_KEY: Optional[str] = None
+
+    # 9. FRONTEND
+    FRONTEND_URL: str = "http://localhost:5173"
     
     model_config = SettingsConfigDict(
         env_file='.env',

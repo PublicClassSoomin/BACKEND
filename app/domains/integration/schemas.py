@@ -10,8 +10,7 @@ class IntegrationResponse(BaseModel):
     id: int
     service: ServiceType
     is_connected: bool
-    webhook_url: Optional[str]= None # extra_config['webhook_url']에 추출
-
+    
     updated_at: datetime
 
     class Config:
@@ -21,19 +20,18 @@ class IntegrationListResponse(BaseModel):
     """연동 목록 응답"""
     integrations: List[IntegrationResponse]
 
+# --- Request Scheams (API Key 방식) ---
 
-# --- Request Schemas ---
-class IntegrationConnectRequest(BaseModel):
-    """
-    서비스 연동 등록 요청.
-    n8n 서버 주소만 입력하면 백엔드가 webhook_url 자동 조합.
-    n8n_base_url = "http://localhost:5678"
-    -> "http://localhost:5678/webhook/google-calendar-ws1"
-    """
-    n8n_base_url: str
+class JiraConnectRequest(BaseModel):
+    domain: str         # http://company.atlassian.net/
+    email: str          # Atlassian 계정 이메일
+    api_token: str      # Atlassian API Token
+    project_key: str    # PROJ
 
-class WebhookTestRequest(BaseModel):
-    """
-    Webhook_url 테스트
-    """
-    webhook_url: str
+class KakaoConnectRequest(BaseModel):
+    api_key: str        # kakao REST API Key
+
+# -- OAuth Response ---
+
+class OAuthUrlResponse(BaseModel):
+    auth_url: str
