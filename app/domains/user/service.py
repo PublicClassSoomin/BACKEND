@@ -16,6 +16,8 @@ service 계층은 인증 기능의 전체 처리 흐름을 담당합니다.
 security 계층을 호출하여 비밀번호 해시 및 토큰 발급을 처리합니다.
 """
 
+import secrets
+
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -25,9 +27,12 @@ from app.core.security import (
     hash_password,
     verify_password,
 )
+from app.domains.integration.repository import create_default_integrations
 from app.domains.user.repository import create_user, get_user_by_email
+from app.domains.workspace.repository import create_workspace, get_workspace_by_invite_code
 from app.domains.user.schemas import (
     AdminSignupRequest,
+    AdminSignupResponse,
     LoginRequest,
     MemberSignupRequest,
     MessageResponse,
@@ -39,7 +44,17 @@ from app.domains.user.schemas import (
 )
 
 
-def signup_admin_service(db: Session, payload: AdminSignupRequest) -> UserResponse:
+def _generate_invite_code() -> str:
+    """
+    워크스페이스 초대코드를 생성합니다.
+
+    Returns:
+        대문자 기반의 8자리 초대코드를 반환합니다.
+    """
+    return secrets.token_hex(4).upper()
+
+
+def signup_admin_service(db: Session, payload: AdminSignupRequest) -> AdminSignupResponse:
     """
     관리자 회원가입 요청을 처리합니다.
 
@@ -64,6 +79,18 @@ def signup_admin_service(db: Session, payload: AdminSignupRequest) -> UserRespon
         )
 
     hashed_password = hash_password(payload.password)
+    workspace = create_workspace(
+        db=db,
+        name=f"{payload.name} Workspace",
+        invite_code=_generate_invite_code(),
+    )
+
+    # 워크스페이스가 생성되면 연동 관리 페이지에서 바로 상태를 조회할 수 있도록
+    # 기본 integration row 5개를 함께 생성합니다.
+    create_default_integrations(
+        db=db,
+        workspace_id=workspace.id,
+    )
 
     user = create_user(
         db=db,
@@ -71,13 +98,16 @@ def signup_admin_service(db: Session, payload: AdminSignupRequest) -> UserRespon
         hashed_password=hashed_password,
         name=payload.name,
         role=UserRole.ADMIN.value,
+        workspace_id=workspace.id,
     )
 
-    return UserResponse(
+    return AdminSignupResponse(
         id=user.id,
         email=user.email,
         name=user.name,
         role=UserRole(user.role),
+        workspace_id=workspace.id,
+        invite_code=workspace.invite_code,
     )
 
 
@@ -108,6 +138,13 @@ def signup_member_service(db: Session, payload: MemberSignupRequest) -> UserResp
             detail="이미 사용 중인 이메일입니다.",
         )
 
+    workspace = get_workspace_by_invite_code(db, payload.invite_code)
+    if not workspace:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="유효하지 않은 초대코드입니다.",
+        )
+
     hashed_password = hash_password(payload.password)
 
     user = create_user(
@@ -116,6 +153,7 @@ def signup_member_service(db: Session, payload: MemberSignupRequest) -> UserResp
         hashed_password=hashed_password,
         name=payload.name,
         role=UserRole.MEMBER.value,
+        workspace_id=workspace.id,
     )
 
     return UserResponse(

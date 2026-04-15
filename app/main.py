@@ -33,13 +33,19 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.lifespan import lifespan
 from app.db.session import Base, engine
+from app.domains.integration.models import Integration
 from app.domains.user.models import User
 from app.domains.user.router import router as user_router
+from app.domains.workspace.models import Workspace
+from app.domains.workspace.router import router as workspace_router
+from app.domains.integration.router import router as integration_router
 
 
 app = FastAPI(title="Meeting Assistant Agent API", lifespan=lifespan)
-
-# 등록된 모델을 기준으로 필요한 테이블을 생성합니다.
+"""
+현재 등록된 SQLAlchemy 모델 기준으로 필요한 테이블을 생성합니다. 
+개발 단계에서는 마이그레이션 도구 없이 create_all 방식으로 먼저 사용합니다. 
+"""
 Base.metadata.create_all(bind=engine)
 
 app.add_middleware(
@@ -60,5 +66,14 @@ async def root():
 async def health_check():
     return {"status": "healthy"}
 
-
+# 사용자 인증 관련 라우터를 연결합니다. 
 app.include_router(user_router, prefix="/api/v1/users", tags=["Users"])
+
+# 워크스페이스 조회 관련 라우터를 연결합니다. 
+app.include_router(workspace_router, prefix="/api/v1/workspaces", tags=["Workspaces"])
+
+app.include_router(
+    integration_router,
+    prefix="/api/v1/integrations",
+    tags=["Integrations"],
+)

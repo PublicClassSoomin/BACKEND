@@ -24,6 +24,7 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.domains.user.schemas import (
     AdminSignupRequest,
+    AdminSignupResponse,
     LoginRequest,
     MemberSignupRequest,
     MessageResponse,
@@ -46,13 +47,13 @@ router = APIRouter()
 
 @router.post(
     "/signup/admin",
-    response_model=UserResponse,
+    response_model=AdminSignupResponse,
     status_code=status.HTTP_201_CREATED,
 )
 async def signup_admin(
     payload: AdminSignupRequest,
     db: Session = Depends(get_db),
-) -> UserResponse:
+) -> AdminSignupResponse:
     """
     관리자 회원가입 요청을 처리하는 API 엔드포인트입니다.
 
@@ -64,7 +65,7 @@ async def signup_admin(
         db: 요청에 사용되는 데이터베이스 세션입니다.
 
     Returns:
-        회원가입 처리 결과 사용자 정보를 반환합니다.
+        회원가입 처리 결과 사용자 정보와 초대코드를 반환합니다.
     """
     return signup_admin_service(db, payload)
 

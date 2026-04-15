@@ -43,6 +43,7 @@ def create_user(
     hashed_password: str,
     name: str,
     role: str,
+    workspace_id: int | None = None,
 ) -> User:
     """
     새로운 사용자를 생성하고 데이터베이스에 저장합니다. 회원가입 시 service 계층에서 전달받은 데이터를 바탕으로 User 객체를 생성하고 저장합니다.
@@ -53,6 +54,7 @@ def create_user(
         hashed_password: 해시 처리된 비밀번호입니다.
         name: 사용자 이름입니다.
         role: 사용자 역할입니다.
+        workspace_id: 연결할 워크스페이스 ID입니다.
 
     Returns:
         저장이 완료된 User 객체를 반환합니다.
@@ -62,6 +64,7 @@ def create_user(
         hashed_password=hashed_password,
         name=name,
         role=role,
+        workspace_id=workspace_id,
     )
 
     db.add(user)
@@ -70,24 +73,52 @@ def create_user(
 
     return user
 
-"""
-service.py는 생각하는 곳이고,
-repository.py는 DB에 손대는 곳입니다.
 
-예를 들면 회원가입 흐름은 나중에 이렇게 됩니다.
+def get_users_by_workspace_id(db: Session, workspace_id: int) -> list[User]:
+    """
+    워크스페이스 ID를 기준으로 해당 워크스페이스 소속 사용자 목록을 조회합니다.
 
-service.py
-이메일 중복인지 확인해야겠다
-repository.py
-get_user_by_email() 호출
-service.py
-중복 아니면 비밀번호 해시해야겠다
-repository.py
-create_user() 호출
-service.py
-응답 반환
-즉:
+    멤버 목록 조회, 권한 관리, 멤버 내보내기 기능에서 공통으로 사용할 수 있는 기본 조회 함수입니다.
 
-service = 흐름 제어
-repository = DB 접근
-"""
+    Args:
+        db: 데이터베이스 세션입니다.
+        workspace_id: 조회할 워크스페이스 ID입니다.
+
+    Returns:
+        해당 워크스페이스에 속한 User 객체 리스트를 반환합니다.
+    """
+    return (
+        db.query(User)
+        .filter(User.workspace_id == workspace_id)
+        .order_by(User.id.asc())
+        .all()
+    )
+
+
+def update_user_role(
+    db: Session,
+    user_id: int,
+    role: str,
+) -> User | None:
+    """
+    특정 사용자의 역할을 변경하고 저장합니다.
+
+    권한 관리 기능에서 관리자/멤버/뷰어 역할을 변경할 때 사용합니다.
+
+    Args:
+        db: 데이터베이스 세션입니다.
+        user_id: 역할을 변경할 사용자 ID입니다.
+        role: 새로 저장할 역할 문자열입니다.
+
+    Returns:
+        변경된 User 객체를 반환하고, 사용자가 존재하지 않으면 None을 반환합니다.
+    """
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        return None
+
+    user.role = role
+    db.commit()
+    db.refresh(user)
+
+    return user

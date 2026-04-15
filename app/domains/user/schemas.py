@@ -222,6 +222,13 @@ class UserResponse(BaseModel):
     name: str
     role: UserRole
 
+class AdminSignupResponse(UserResponse):
+    """
+    관리자 회원가입 완료 시 사용하는 응답 스키마입니다.
+    관리자 가입과 동시에 생성된 워크스페이스 정보와 초대코드를 함께 반환하기 위해 사용합니다. 
+    """
+    workspace_id: int
+    invite_code: str
 
 class TokenResponse(BaseModel):
     """
