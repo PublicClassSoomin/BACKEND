@@ -16,12 +16,12 @@ from app.domains.integration.models import Integration
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    if settings.DEBUG:
+    if settings.DEBUG and settings.RESET_DB_ON_STARTUP:
         Base.metadata.drop_all(bind=engine)
-        print("🗑️  [DEBUG] 전체 테이블 삭제 완료")
+        print("[DEBUG] 전체 테이블 삭제 완료")
 
     Base.metadata.create_all(bind=engine)
-    print("✅  테이블 생성 완료")
+    print("테이블 생성 완료")
 
     # [시작 시] HTTP 클라이언트 세션 초기화
     await ClientSessionManager.get_client()

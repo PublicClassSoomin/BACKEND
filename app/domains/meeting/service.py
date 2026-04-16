@@ -15,9 +15,12 @@ from app.domains.meeting.schemas import (
     MeetingSearchParams,
     MeetingSearchParticipantOut,
     MeetingSearchResponse,
+    MeetingHistoryItemOut,
+    MeetingHistoryResponse,
 )
 from app.domains.user.models import User
 from app.domains.intelligence.models import MeetingMinute
+from app.domains.meeting.repository import MeetingHistoryRepository
 
 
 class MeetingCreateService:
@@ -173,3 +176,46 @@ class MeetingSearchService:
             data=MeetingSearchData(meetings=items),
             message="OK",
         )
+
+
+class MeetingHistoryService:
+    """회의 히스토리 검색 (제목 + 회의록 content/summary, outerjoin)."""
+
+    @staticmethod
+    def get_history(
+        db: Session,
+        workspace_id: int,
+        keyword: str | None,
+        page: int,
+        size: int,
+    ) -> MeetingHistoryResponse:
+        page = max(int(page), 1)
+        size = max(min(int(size), 100), 1)
+
+        total, rows = MeetingHistoryRepository.search_history(
+            db=db,
+            workspace_id=workspace_id,
+            keyword=keyword,
+            page=page,
+            size=size,
+        )
+
+        items: list[MeetingHistoryItemOut] = []
+        for meeting, minute in rows:
+            items.append(
+                MeetingHistoryItemOut(
+                    id=int(meeting.id),
+                    title=meeting.title,
+                    status=(
+                        meeting.status.value
+                        if isinstance(meeting.status, MeetingStatus)
+                        else str(meeting.status)
+                    ),
+                    scheduled_at=meeting.scheduled_at,
+                    started_at=meeting.started_at,
+                    ended_at=meeting.ended_at,
+                    summary=(minute.summary if minute else None),
+                )
+            )
+
+        return MeetingHistoryResponse(total=total, page=page, meetings=items)

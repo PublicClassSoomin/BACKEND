@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     # 1. 시스템 기본 설정
     ENV : str = "dev"
     DEBUG : bool
+    RESET_DB_ON_STARTUP: bool = False
     DATABASE_URL: Optional[str] = None
     SECRET_KEY: str = "secret_key"
     ALGORITHM: str = "HS256"

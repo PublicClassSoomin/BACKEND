@@ -13,8 +13,13 @@ from app.domains.meeting.schemas import (
     CreateMeetingResponse,
     MeetingSearchParams,
     MeetingSearchResponse,
+    MeetingHistoryResponse,
 )
-from app.domains.meeting.service import MeetingCreateService, MeetingSearchService
+from app.domains.meeting.service import (
+    MeetingCreateService,
+    MeetingSearchService,
+    MeetingHistoryService,
+)
 
 
 def get_current_user_id() -> int:
@@ -62,6 +67,27 @@ def search_workspace_meetings(
         participant_id=participant_id,
     )
     return MeetingSearchService.search(db, workspace_id, params)
+
+
+@router.get(
+    "/{workspace_id}/meetings/history",
+    response_model=MeetingHistoryResponse,
+)
+def get_workspace_meetings_history(
+    workspace_id: int,
+    db: Session = Depends(get_db),
+    keyword: Optional[str] = Query(None, description="검색어(제목/회의록 포함)"),
+    page: int = Query(1, ge=1),
+    size: int = Query(20, ge=1, le=100),
+):
+    """
+    회의 히스토리 검색:
+
+    - meetings.title OR meeting_minutes.content/summary (outer join)
+    - scheduled_at 최신순
+    - page/size 페이징
+    """
+    return MeetingHistoryService.get_history(db, workspace_id, keyword, page, size)
 
 
 @router.post(

@@ -58,3 +58,22 @@ class MeetingSearchResponse(BaseModel):
     success: bool = True
     data: MeetingSearchData
     message: str = "OK"
+
+
+# ── Meeting history (GET .../meetings/history) ─────────────────────────────
+
+
+class MeetingHistoryItemOut(BaseModel):
+    id: int
+    title: str
+    status: str
+    scheduled_at: Optional[datetime] = None
+    started_at: Optional[datetime] = None
+    ended_at: Optional[datetime] = None
+    summary: Optional[str] = None
+
+
+class MeetingHistoryResponse(BaseModel):
+    total: int
+    page: int
+    meetings: list[MeetingHistoryItemOut] = Field(default_factory=list)
