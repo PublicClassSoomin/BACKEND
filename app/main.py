@@ -1,4 +1,12 @@
 # app\main.py
+'''
+RailWay 배포 테스트
+'''
+import pymysql
+pymysql.install_as_MySQLdb()
+
+# -------------------------------------------------
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1.api_router import api_router
