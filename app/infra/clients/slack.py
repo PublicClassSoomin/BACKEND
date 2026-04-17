@@ -19,11 +19,32 @@ class SlackClient(BaseClient):
             }
         )
 
+    async def _check_slack_error(self, response_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Slack의 http 200 + ok : False 에러 확인
+        """
+        if not response_data.get("ok"):
+            error_code = response_data.get("error", "unknown_error")
+            logger.error(f"[Slack API Error] -> {error_code}")
+            raise ValueError(f"Slack API Error -. {error_code}")
+        
+    async def get_public_channels(self) -> List[Dict[str, str]]:
+        """
+        드롭다운 용 공개 체널 목록 조회
+        """
+        result = await self._request(
+            "GET", "/conversations.list",
+            parmas = {
+                "types": "public_channel",
+                "exclude_archived": "true"
+            }
+        )
+
     async def send_message(
             self, 
-            channel: str, 
+            channel_id: str, 
             text: str, 
-            blocks: List[Dict] = None,
+            blocks: Optional[List[Dict]] = None,
     ) -> Dict[str, Any]:
         """
         Slack 채널에 메세지 전송
@@ -34,13 +55,14 @@ class SlackClient(BaseClient):
             blocks: Block Kit 블록 리스트
         """
         payload: Dict[str, Any] = {
-            "channel": channel,
+            "channel": channel_id,
             "text": text
         }
         if blocks:
             payload['blocks'] = blocks
         
-        return await self._request("POST", "/chat.postMessage", json=payload)
+        result = await self._request("POST", "/chat.postMessage", json=payload)
+        return self._check_slack_error(result)
     
     async def get_user_id_by_email(self, email: str) -> str:
         """

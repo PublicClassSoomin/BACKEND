@@ -69,6 +69,17 @@ async def test_integration(db: Session, workspace_id: int, service: ServiceType)
     # 서비스 ping 로직 향후 추가
     return True
 
+
+
+
+#===============================================================
+#
+#                OAuth API
+#
+#===============================================================
+
+
+
 # --- Google Calendar OAuth ---
 
 def get_google_auth_url(workspace_id: int):
@@ -253,3 +264,21 @@ async def get_valid_google_token(db: Session, workspace_id: int) -> str:
         return tokens["access_token"]
 
     return integration.access_token
+
+#===============================================================
+#
+#                   API service
+#
+#===============================================================
+from app.infra.clients.slack import SlackClient
+
+async def get_slack_channel(db: Session, workspace_id: int) -> List[dict]:
+    """
+    슬랙 연동후 채널을 선택하기 위해 채널 목록 반환
+    """
+    integration = repository.get_integration(db, workspace_id, ServiceType.slack)
+    if not integration or not integration.access_token:
+        raise ValueError("Slack 연동이 되어있지 않거나 토큰이 없습니다.")
+    
+    slack_client = SlackClient(integration.access_token)
+    return await slack_client.get_public_channels()
