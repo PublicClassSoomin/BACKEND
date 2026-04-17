@@ -25,7 +25,7 @@ class CreateMeetingResponse(BaseModel):
     message: str = "OK"
 
 
-# ── Meeting search (GET .../meetings/search) ───────────────────────────────
+# ── Meeting search (GET /api/v1/knowledge/workspaces/{id}/meetings/search) ─
 
 
 class MeetingSearchParams(BaseModel):
@@ -60,7 +60,7 @@ class MeetingSearchResponse(BaseModel):
     message: str = "OK"
 
 
-# ── Meeting history (GET .../meetings/history) ─────────────────────────────
+# ── Meeting history (GET /api/v1/meetings/workspaces/{id}/history) ─────────
 
 
 class MeetingHistoryItemOut(BaseModel):
