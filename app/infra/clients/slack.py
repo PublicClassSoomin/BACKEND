@@ -75,17 +75,69 @@ class SlackClient(BaseClient):
         result = await self._request("POST", "/chat.postMessage", json=payload)
         return await self._check_slack_error(result)
     
-    async def get_user_id_by_email(self, email: str) -> str:
+    async def get_channel_members(self, channel_id: str) -> List[str]:
         """
-        이메일로 Slack user_id 조회
-        DM 하기 위해 user_id를 알아야 함.
+        채널 내 멤버 user_id 목록 조회
         """
         result = await self._request(
-            "GET", "/users.lookupByEmail", params={"email": email}
+            "GET", "/conversations.members",
+            params={
+                "channel": channel_id
+            }
         )
         result = await self._check_slack_error(result)
-        return result['user']['id']
+        return result.get("members", [])
     
+    async def get_user_info(self, user_id: str) -> Dict[str, Any]:
+        """
+        user_id로 유저 정보 조회
+        """
+        result = await self._request(
+            "GET", "/users.info",
+            params={
+                "user": user_id
+            }
+        )
+        result = await self._check_slack_error(result)
+        return {
+            "id": user_id,
+            "name": result['user']['real_name'],
+            "email": result['user']['profile'].get("email", "")
+        }
+    
+    async def send_dm_to_workspace_member(
+            self,
+            channel_id: str,
+            workb_email: str,
+            text: str,
+    ) -> Dict[str, Any]:
+        """
+        WorkB DB에 이메일 있으면 채널 멤버와 매핑 후 DM 전송.!
+        채널에 없으면 ValueError 발생.
+
+        args: 
+            channel_id : 채널 ID
+            workb_email : 워크비 DB에 있는 users.email
+            text : 보낼 메세지
+        """
+        # 1. 채널 멤버 목록 조회
+        member_ids = await self.get_channel_members(channel_id)
+
+        # 2. 채널에 있는 모든 사용자 이메일 조회
+        slack_user_id = None
+        for uid in member_ids:
+            info = await self.get_user_info(uid)
+            if info['email'] == workb_email:
+                slack_user_id = uid
+                break
+
+        if not slack_user_id:
+            raise ValueError(f"채널에서 {workb_email} 유저를 찾을 수 없습니다.")
+        
+        # DM 전송
+        dm_channel_id = await self.open_dm(slack_user_id)
+        return await self.send_message(channel_id=dm_channel_id, text=text)
+
     async def open_dm(self, user_id: str) -> str:
         """
         DM 채널 만들고, 채널 ID 반환
@@ -96,17 +148,6 @@ class SlackClient(BaseClient):
         result = await self._check_slack_error(result)
         return result['channel']['id']
     
-    async def send_dm_by_email(self, email: str, text: str) -> Dict[str, Any]:
-        """
-        이메일 기반 DM 발송
-
-        args:
-            email: 수신자 이메일
-            text: 내용
-        """
-        user_id = await self.get_user_id_by_email(email)
-        channel_id = await self.open_dm(user_id)
-        return await self.send_message(channel_id=channel_id, text=text)
     
     async def send_minutes(
             self,
@@ -182,3 +223,5 @@ class SlackClient(BaseClient):
             text=f"[{meeting_title}] 회의록이 도착했습니다.",
             blocks=blocks
         )
+    
+    
