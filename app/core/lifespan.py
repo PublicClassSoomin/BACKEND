@@ -10,7 +10,7 @@ from app.domains.integration.service import setup_n8n_workflows
 
 # 모든 모델을 import해야 Base가 테이블을 인식함
 from app.domains.user.models import User
-from app.domains.workspace.models import Workspace, InviteCode, WorkspaceMember, DeviceSetting
+from app.domains.workspace.models import Workspace, InviteCode, WorkspaceMember, DeviceSetting, Department
 from app.domains.meeting.models import Meeting, MeetingParticipant, Agenda, AgendaItem, SpeakerProfile
 from app.domains.intelligence.models import Decision, MeetingMinute, MinutePhoto, ReviewRequest
 from app.domains.action.models import ActionItem, WbsEpic, WbsTask, Report
