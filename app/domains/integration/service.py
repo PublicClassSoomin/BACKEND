@@ -133,7 +133,7 @@ def get_slack_auth_url(workspace_id: int) -> str:
     return (
         f"https://slack.com/oauth/v2/authorize"
         f"?client_id={settings.SLACK_CLIENT_ID}"
-        f"&scope=chat:write,chat:write.public,channels:read,users:read,users:read.email,im:write,files:write"
+        f"&scope=chat:write,chat:write.public,channels:read,users:read,users:read.email,im:write,files:write,pins:write"
         f"&redirect_uri={settings.SLACK_REDIRECT_URI}"
         f"&state={state}"
     )

@@ -56,6 +56,7 @@ class SlackClient(BaseClient):
             channel_id: str, 
             text: str, 
             blocks: Optional[List[Dict]] = None,
+            thread_ts: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Slack 채널에 메세지 전송
@@ -64,6 +65,7 @@ class SlackClient(BaseClient):
             channel: 채널 ID
             text: 메시지 본문
             blocks: Block Kit 블록 리스트
+            thread_ts : 회의록 스레드에 달기
         """
         payload: Dict[str, Any] = {
             "channel": channel_id,
@@ -71,6 +73,9 @@ class SlackClient(BaseClient):
         }
         if blocks:
             payload['blocks'] = blocks
+
+        if thread_ts:
+            payload['thread_ts'] = thread_ts
         
         result = await self._request("POST", "/chat.postMessage", json=payload)
         return await self._check_slack_error(result)
@@ -156,7 +161,8 @@ class SlackClient(BaseClient):
             minutes_text: str,
             action_items: Optional[List[str]] = None,
             link_url: Optional[str] = None,
-    ) -> Dict[str, Any]:
+            thread_ts: Optional[str] = None,
+    ) -> str:
         """
         회의록을 Slack Block Kit 형식으로 전송.
 
@@ -166,6 +172,10 @@ class SlackClient(BaseClient):
             minutes_text: 회의록 내용
             action_items: 액션 아이템 리스트 (선택)
             link_url: 서비스 내 회의록 링크 (선택)
+            thread_ts: 스레드에 달기 (선택)
+
+        왜 ts를 반환하나: Slack은 메시지를 보낼 때 ts(타임스탬프)를 응답으로
+        줍니다. 이 ts가 메시지의 고유 ID 역할을 해서, 나중에 WBS나 액션아이템을 이 메시지의 스레드로 달 때 thread_ts로 넘겨야 합니다.
         """
         blocks: List[Dict[str, Any]] = [
             {
@@ -218,10 +228,65 @@ class SlackClient(BaseClient):
                 ],
             })
         
-        return await self.send_message(
+        result = await self.send_message(
             channel_id=channel_id,
             text=f"[{meeting_title}] 회의록이 도착했습니다.",
-            blocks=blocks
+            blocks=blocks,
+            thread_ts=thread_ts
         )
-    
+        return result['ts'] 
+
+    async def pin_message(self, channel_id: str, message_ts: str) -> None:
+        """
+        메시지를 채널에 핀 고정.
+
+        args:
+            channel_id: 채널 ID
+            message_ts: 핀 고정할 메시지의 ts
+        """
+        result = await self._request(
+            "POST", "/pins.add",
+            json = {
+                "channel": channel_id,
+                "timestamp": message_ts
+            }
+        )
+        await self._check_slack_error(result)
+
+    async def send_action_items(
+            self,
+            channel_id: str,
+            thread_ts: str,
+            action_items: List[Dict[str, str]],
+    ) -> None:
+        """
+        액션 아이템을 스레드에 멘션하고, 담당자에게 DM 전송
+
+        args:
+            channel_id: 채널 ID
+            thread_ts: 쓰레드 타임스탬프
+            action_items: [{
+                "slack_user_id": "U123",
+                "task": "슬랙 액션 아이템 DM 전송",
+                "due": "5/10"
+            }]
+        """
+        for item in action_items:
+            slack_user_id = item['slack_user_id']
+            task = item['task']
+            due = item.get("due", "미정")
+
+            # 1. 스레드에 멘션
+            await self.send_message(
+                channel_id=channel_id,
+                text=f"<@{slack_user_id}> {task} (기한: {due})",
+                thread_ts=thread_ts
+            )
+
+            # 2. 담당자에게 DM
+            dm_channel_id = await self.open_dm(slack_user_id)
+            await self.send_message(
+                channel_id=dm_channel_id,
+                text=f"담당 태스크가 배정되었습니다.\n• {task}\n• 기한: {due}"
+            )
     
