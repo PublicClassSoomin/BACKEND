@@ -302,8 +302,31 @@ class SlackClient(BaseClient):
         args:
             channel_id: 채널 ID
             text: 메세지
-            post_at: 전송 시각(Unix timestamp, 초단위)
+            post_at: 전송 시각(Unix timestamp, 초단위) 현재 시각보다 최소 60초 이후
 
         returns:
-        sc
+            scheduled_message_id - 취소 시 chat.deleteScheduleMessage에 사용
         """
+        result = await self._request(
+            "POST", "/chat.scheduleMessage",
+            json={
+                "channel": channel_id,
+                "text": text,
+                "post_at": post_at,
+            }
+        )
+        result = await self._check_slack_error(result)
+        return result['scheduled_message_id']
+
+    async def join_channel(self, channel_id: str) -> None:
+        """
+        봇을 채널에 연동하게 되면 참여.
+        pin_message 전 호출.
+        """
+        result = await self._request(
+            "POST", "/conversations.join",
+            json= {
+                "channel": channel_id
+            }
+        )
+        await self._check_slack_error(result)

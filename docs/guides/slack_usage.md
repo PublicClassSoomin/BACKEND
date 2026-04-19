@@ -34,6 +34,9 @@ await slack.send_message(
 
 ## 2. 채널에 회의록 전송 + 스레드 활용
 
+> `send_minutes`는 전송된 메시지의 `ts`(타임스탬프 ID)를 반환합니다.
+> 이후 WBS·액션아이템을 스레드로 달 때 `thread_ts`로 사용합니다.
+
 ```python
 # 회의록 전송 → ts 반환
 ts = await slack.send_minutes(
@@ -43,7 +46,7 @@ ts = await slack.send_minutes(
     action_items=["API 문서 작성", "리뷰 요청"],        # 선택
     link_url="https://workb.app/meetings/1/minutes"    # 선택
 )
-# ts = "1716300000.123456" — 이 메시지의 고유 ID
+# ts = "1716300000.123456"
 
 # WBS를 스레드 답글로 전송
 await slack.send_message(
@@ -55,90 +58,31 @@ await slack.send_message(
 
 ---
 
-## 3. WorkB 가입 유저에게 DM
+## 3. 채널 참여 (핀 고정 전 필수)
 
-> 채널 멤버 중 WorkB 이메일과 일치하는 유저에게만 DM을 전송합니다.
-> 채널에 없거나 이메일이 다르면 `ValueError` 발생.
+> `pins:write`는 봇이 채널 멤버여야 동작합니다.
+> `pin_message` 전에 반드시 호출하세요.
 
 ```python
-await slack.send_dm_to_workspace_member(
-    channel_id="C1234567",
-    workb_email="user@company.com",
-    text="회의록 검토 요청이 도착했습니다."
-)
+await slack.join_channel(channel_id="C1234567")
 ```
 
 ---
 
-## 4. 채널 전원에게 DM (미가입자 포함)
+## 4. 핀 고정
 
 ```python
-member_ids = await slack.get_channel_members("C1234567")
-for uid in member_ids:
-    try:
-        dm_ch = await slack.open_dm(uid)
-        await slack.send_message(channel_id=dm_ch, text="공지사항입니다.")
-    except Exception as e:
-        logger.warning(f"DM 실패 ({uid}): {e}")
-```
-
----
-
-## 5. workspace_id로 채널 ID 조회
-
-> 어드민이 드롭다운에서 채널을 선택하면 `integrations.extra_config.channel_id`에 저장됩니다.
-> 이후 서비스 코드에서는 `channel_id`를 직접 받지 않아도 됩니다.
-
-```python
-from app.domains.integration.service import get_slack_channel_id
-
-channel_id = get_slack_channel_id(db, workspace_id)
-await slack.send_minutes(channel_id=channel_id, ...)
-```
-
-채널 목록 드롭다운용 조회:
-
-```python
-channels = await slack.get_public_channels()
-# [{"id": "C1234567", "name": "general"}, ...]
-```
-
-채널 선택 저장 (프론트 → `PATCH /integrations/slack/channel?workspace_id={id}`):
-
-```python
-from app.domains.integration.service import save_slack_channel
-
-save_slack_channel(db, workspace_id, channel_id="C1234567")
-```
-
----
-
-## 6. 채널 멤버 및 유저 정보 조회
-
-```python
-# 채널 멤버 user_id 목록
-member_ids = await slack.get_channel_members("C1234567")
-# ["U1234567", "U7654321", ...]
-
-# user_id → 이름·이메일
-info = await slack.get_user_info("U1234567")
-# {"id": "U1234567", "name": "홍길동", "email": "hong@company.com"}
-```
-
----
-
-## 3. 핀 고정
-
-```python
+await slack.join_channel(channel_id="C1234567")   # 멤버 아닐 경우 필요
 ts = await slack.send_minutes(channel_id, "회의 제목", minutes_text)
 await slack.pin_message(channel_id=channel_id, message_ts=ts)
 ```
 
 ---
 
-## 4. 액션아이템 스레드 멘션 + 담당자 DM
+## 5. 액션아이템 스레드 멘션 + 담당자 DM
 
-> `slack_user_id`는 WorkB DB 이메일로 `get_user_info`를 통해 미리 조회해두어야 합니다.
+> `slack_user_id`는 `get_user_info()`로 미리 조회해야 합니다.
+> `due` 없으면 "미정"으로 표시됩니다.
 
 ```python
 await slack.send_action_items(
@@ -154,20 +98,78 @@ await slack.send_action_items(
 
 ---
 
-## 5. 예약 전송
+## 6. WorkB 가입 유저에게 DM
+
+> 채널 멤버 중 WorkB 이메일과 일치하는 유저에게만 DM을 전송합니다.
+> 채널에 없거나 이메일이 다르면 `ValueError` 발생.
 
 ```python
-from datetime import datetime
-
-scheduled_at = datetime(2025, 5, 6, 14, 0, 0)
-post_at = int(scheduled_at.timestamp()) - 600  # 10분 전
-
-scheduled_id = await slack.schedule_message(
+await slack.send_dm_to_workspace_member(
     channel_id="C1234567",
-    text="10분 후 회의가 시작됩니다. 준비해주세요!",
-    post_at=post_at
+    workb_email="user@company.com",
+    text="회의록 검토 요청이 도착했습니다."
 )
-# scheduled_id — 취소 시 chat.deleteScheduledMessage에 사용
+```
+
+---
+
+## 7. 채널 전원에게 DM (미가입자 포함)
+
+```python
+member_ids = await slack.get_channel_members("C1234567")
+for uid in member_ids:
+    try:
+        dm_ch = await slack.open_dm(uid)
+        await slack.send_message(channel_id=dm_ch, text="공지사항입니다.")
+    except Exception as e:
+        logger.warning(f"DM 실패 ({uid}): {e}")
+```
+
+---
+
+## 8. 채널 멤버 및 유저 정보 조회
+
+```python
+# 채널 멤버 user_id 목록
+member_ids = await slack.get_channel_members("C1234567")
+# ["U1234567", "U7654321", ...]
+
+# user_id → 이름·이메일
+info = await slack.get_user_info("U1234567")
+# {"id": "U1234567", "name": "홍길동", "email": "hong@company.com"}
+```
+
+---
+
+## 9. workspace_id로 채널 ID 조회
+
+> 어드민이 드롭다운에서 채널을 선택하면 `integrations.extra_config.channel_id`에 저장됩니다.
+
+채널 목록 드롭다운용 조회 (`GET /integrations/workspaces/{id}/slack/channels`):
+
+```python
+from app.domains.integration.service import get_slack_channel
+
+channels = await get_slack_channel(db, workspace_id)
+# [{"id": "C1234567", "name": "general"}, ...]
+```
+
+채널 선택 저장 (`PATCH /integrations/slack/channel?workspace_id={id}`):
+
+```python
+from app.domains.integration.service import save_slack_channel
+
+save_slack_channel(db, workspace_id, channel_id="C1234567")
+```
+
+service.py에서 저장된 채널 ID 꺼내기:
+
+```python
+from app.domains.integration.repository import get_integration
+from app.domains.integration.models import ServiceType
+
+integration = get_integration(db, workspace_id, ServiceType.slack)
+channel_id = integration.extra_config.get("channel_id")
 ```
 
 ---
@@ -175,18 +177,20 @@ scheduled_id = await slack.schedule_message(
 ## 주의사항
 
 - `channel_id`는 채널명(`#general`)이 아닌 **ID**(`C1234567`)를 사용합니다.
-- 봇이 채널에 없어도 `chat:write.public` 스코프로 전송 가능합니다.
+- 봇이 채널에 없어도 `chat:write.public` 스코프로 메시지 전송은 가능합니다.
+- `pin_message`는 봇이 채널 멤버여야 합니다. 반드시 `join_channel` 먼저 호출하세요.
 - `send_dm_to_workspace_member`는 채널 멤버 전체를 순회하므로 멤버가 많은 채널에서는 느릴 수 있습니다.
 - `send_action_items`는 `slack_user_id`(U로 시작하는 ID)를 직접 받습니다. 이메일 → user_id 변환은 service.py에서 미리 처리하세요.
-- `schedule_message`의 `post_at`은 **현재 시각보다 최소 60초 이후**여야 합니다. Slack 제한.
 - WorkB 미가입자도 Slack `user_id`를 알면 `open_dm` + `send_message`로 DM 전송 가능합니다.
 - Slack API 에러는 `ValueError`로 변환됩니다. `router.py`에서 `HTTPException(400)`으로 처리하세요.
-- **필요한 OAuth 스코프**: `chat:write`, `chat:write.public`, `channels:read`, `users:read`, `users:read.email`, `im:write`, `files:write`, `pins:write`
+- **⚠️ `save_slack_channel` 버그**: 파라미터 `channel_id`를 무시하고 기존 값을 읽는 버그 있음. 수정 필요.
+- **필요한 OAuth 스코프**: `chat:write`, `chat:write.public`, `channels:read`, `channels:join`, `users:read`, `users:read.email`, `im:write`, `files:write`, `pins:write`
+- 스코프 추가 후에는 반드시 워크스페이스 **재연동** 필요 (기존 토큰에 새 스코프 미포함).
 
 ```python
 # router.py 패턴
 try:
-    await slack.send_message(...)
+    await slack.send_method(...)
 except ValueError as e:
     raise HTTPException(status_code=400, detail=str(e))
 ```
