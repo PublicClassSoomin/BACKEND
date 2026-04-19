@@ -5,7 +5,7 @@ from fastapi import APIRouter
 # from app.domains.meeting.router import router as meeting_router
 # from app.domains.intelligence.router import router as intelligence_router
 # from app.domains.knowledge.router import router as knowledge_router
-# from app.domains.action.router import router as action_router
+from app.domains.action.router import router as action_router
 # from app.domains.vision.router import router as vision_router
 # from app.domains.user.router import router as user_router
 # from app.domains.workspace.router import router as workspace_router
@@ -26,7 +26,7 @@ api_router = APIRouter()
 # api_router.include_router(knowledge_router, prefix="/knowledges", tags=["Knowledge"])
 
 # 5. 액션 도메인 (생성된 WBS 조회, 외부 툴 연동 상태 확인)
-# api_router.include_router(action_router, prefix="/actions", tags=["Actions"])
+api_router.include_router(action_router, prefix="/actions", tags=["Actions"])
 
 # 6. 비전 도메인 (스크린샷 분석 결과 조회)
 # api_router.include_router(vision_router, prefix="/visions", tags=["Vision"])
