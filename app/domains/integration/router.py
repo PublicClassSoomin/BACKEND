@@ -174,7 +174,7 @@ async def list_slack_channels(workspace_id: int, db: Session = Depends(get_db)):
             "channels": channels
         }
     except ValueError as e:
-        raise HTTPException(status=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e))
     
 @router.patch("/slack/channel")
 def select_slack_channel(
