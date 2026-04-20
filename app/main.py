@@ -1,17 +1,24 @@
 # app\main.py
+'''
+RailWay 배포 테스트
+'''
+import pymysql
+pymysql.install_as_MySQLdb()
+
+# -------------------------------------------------
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-# 각 도메인에서 router 만들어서 연결해주세요.
 from app.api.v1.api_router import api_router
 from app.core.lifespan import lifespan
 
-app = FastAPI(title="Meeting Assistant Agent API", lifespan=lifespan)
+app = FastAPI(title="Meeting Assistant Agent API", lifespan=lifespan, redirect_slashes=False)
 
 # 웹 프론트엔드 통신 허용 (CORS)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], 
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
