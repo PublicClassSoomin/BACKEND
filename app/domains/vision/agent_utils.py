@@ -2,7 +2,6 @@
 import base64, json, io, re, subprocess, tempfile, os, shutil
 from pdf2image import convert_from_path
 from langchain_openai import ChatOpenAI
-from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage
 from app.core.config import settings
 from app.utils.redis_utils import (
@@ -10,7 +9,7 @@ from app.utils.redis_utils import (
 )
 
 vision_llm = ChatOpenAI(
-    model="gpt-4o",
+    model="gpt-5.4-mini",
     api_key=settings.OPENAI_API_KEY
 )
 
