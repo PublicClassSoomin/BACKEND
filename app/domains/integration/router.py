@@ -12,6 +12,7 @@ from app.domains.integration.schemas import (
     JiraConnectRequest,
     KakaoConnectRequest,
     OAuthUrlResponse,
+    SlackChannelSelectRequest,
 )
 from app.domains.integration import service, repository
 from app.core.config import settings
@@ -37,6 +38,7 @@ async def get_integrations(workspace_id: int, db: Session = Depends(get_db)):
                 service=item.service,
                 is_connected=item.is_connected,
                 updated_at=item.updated_at,
+                selected_channel_id=item.extra_config.get("channel_id") if item.extra_config else None,
             )
         )
     return IntegrationListResponse(integrations=integrations)
@@ -72,6 +74,14 @@ async def test_webhook(
     if not success:
         raise HTTPException(status_code=400, detail="연동 상태 확인 불가")
     return {"success": True, "message": "webhook 연결 성공"}
+
+
+#===============================================================
+#
+#                OAuth API
+#
+#===============================================================
+
 
 # --- Google Calendar OAuth ---
 
@@ -146,3 +156,37 @@ async def connect_kakao(
         id=item.id, service=item.service, is_connected=item.is_connected,
         updated_at=item.updated_at,
     )
+
+#===============================================================
+#
+#                   API service
+#
+#===============================================================
+
+# Slack API https://localhost:8000/api/v1/integrations/workspaces/1/slack/channels
+@router.get("/workspaces/{workspace_id}/slack/channels")
+async def list_slack_channels(workspace_id: int, db: Session = Depends(get_db)):
+    """
+    슬랙 채널 목록 조회
+    """
+    try:
+        channels = await service.get_slack_channel(db, workspace_id)
+        return {
+            "channels": channels
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    
+@router.patch("/slack/channel")
+async def select_slack_channel(
+    workspace_id: int,
+    body: SlackChannelSelectRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    슬랙 채널 선택
+    """
+    await service.save_slack_channel(db, workspace_id, body.channel_id)
+    return {
+        "status": "ok"
+    }

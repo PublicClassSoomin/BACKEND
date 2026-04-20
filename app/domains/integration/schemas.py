@@ -10,6 +10,7 @@ class IntegrationResponse(BaseModel):
     id: int
     service: ServiceType
     is_connected: bool
+    selected_channel_id: Optional[str] = None
     
     updated_at: datetime
 
@@ -31,6 +32,9 @@ class JiraConnectRequest(BaseModel):
 class KakaoConnectRequest(BaseModel):
     api_key: str        # kakao REST API Key
 
+class SlackChannelSelectRequest(BaseModel):
+    channel_id: str
+    
 # -- OAuth Response ---
 
 class OAuthUrlResponse(BaseModel):

@@ -10,20 +10,10 @@ from typing import List
 from app.core.graph.state import SharedState
 from app.domains.integration.models import Integration, ServiceType
 from app.domains.integration import repository
-from app.infra.clients.n8n import N8nClient
 from app.infra.clients.session_manager import ClientSessionManager
 from app.core.config import settings
 
 logger= logging.getLogger(__name__)
-
-# 서비스별 n8n webhook path
-SERVICE_PATHS = {
-    ServiceType.google_calendar : "google-calendar",
-    ServiceType.jira            : "jira",
-    ServiceType.slack           : "slack",
-    ServiceType.kakao           : "kakao",
-    ServiceType.notion          : "notion",
-}
 
 # --- state  인코딩, 디코딩 (OAuth state parameters) ---
 def _encode_state(workspace_id: int) -> str:
@@ -58,21 +48,6 @@ async def load_integration_settings(state: SharedState, db: Session):
 def get_integrations(db: Session, workspace_id: int) -> List[Integration]:
     return repository.get_integrations(db, workspace_id)
 
-def connect_integration(
-        db: Session, workspace_id: int, service: ServiceType
-) -> Integration:
-    """
-    settings.N8N_BASE_URL + service + workspace_id 조합
-    settings.N8N_BASE_URL = http://localhost:5678
-    service = slack
-    workspace_id = 1
-    -> http://localhost:5678/webhook/slack-ws1
-    """
-    path = f"{SERVICE_PATHS[service]}-ws{workspace_id}"
-    webhook_url = f"{settings.N8N_BASE_URL.rstrip('/')}/webhook/{path}"
-    logger.info(f"webhook_url -> {webhook_url}")
-    return repository.upsert_integration(db, workspace_id, service, webhook_url)
-
 def disconnect_integration(
         db: Session,
         workspace_id: int,
@@ -93,6 +68,17 @@ async def test_integration(db: Session, workspace_id: int, service: ServiceType)
         return False
     # 서비스 ping 로직 향후 추가
     return True
+
+
+
+
+#===============================================================
+#
+#                OAuth API
+#
+#===============================================================
+
+
 
 # --- Google Calendar OAuth ---
 
@@ -147,7 +133,7 @@ def get_slack_auth_url(workspace_id: int) -> str:
     return (
         f"https://slack.com/oauth/v2/authorize"
         f"?client_id={settings.SLACK_CLIENT_ID}"
-        f"&scope=chat:write,channels:read,files:write"
+        f"&scope=chat:write,chat:write.public,channels:join,channels:read,users:read,users:read.email,im:write,files:write,pins:write"
         f"&redirect_uri={settings.SLACK_REDIRECT_URI}"
         f"&state={state}"
     )
@@ -248,7 +234,7 @@ def connect_kakao(db: Session, workspace_id: int, api_key: str) -> Integration:
     )
 
 
-# --- 토큰 갱신 ---
+# --- Google Token 확인 및 갱신 ---
 
 async def get_valid_google_token(db: Session, workspace_id: int) -> str:
     integration = repository.get_integration(db, workspace_id, ServiceType.google_calendar)
@@ -279,17 +265,39 @@ async def get_valid_google_token(db: Session, workspace_id: int) -> str:
 
     return integration.access_token
 
+#===============================================================
+#
+#                   API service
+#
+#===============================================================
 
-# --- n8n 워크플로우 자동 생성 (워크스페이스 생성 시) ---
+# Slack API
+from app.infra.clients.slack import SlackClient
 
-async def setup_n8n_workflows(workspace_id: int) -> None:
-    n8n = N8nClient()
-    for service_type, path_prefix in SERVICE_PATHS.items():
-        path = f"{path_prefix}-ws{workspace_id}"
-        name = f"[ws{workspace_id}] {service_type.value}"
-        try:
-            await n8n.create_and_activate_workflow(name=name, path=path)
-            print(f"{name} 성공")
-        except Exception as e:
-            print(f"❌ {name} 실패: {e}")
-            logger.error(f"n8n 워크플로우 생성 실패 [{name}]: {e}")
+async def get_slack_channel(db: Session, workspace_id: int) -> List[dict]:
+    """
+    슬랙 연동후 채널을 선택하기 위해 채널 목록 반환
+    """
+    integration = repository.get_integration(db, workspace_id, ServiceType.slack)
+    if not integration or not integration.access_token:
+        raise ValueError("Slack 연동이 되어있지 않거나 토큰이 없습니다.")
+    
+    slack_client = SlackClient(integration.access_token)
+    return await slack_client.get_public_channels()
+
+async def save_slack_channel(db: Session, workspace_id: int, channel_id: str) -> Integration:
+    """
+    유저가 선택한 Slack 채널 ID를 extra_config 에 저장
+    """
+    integration = repository.get_integration(db, workspace_id, ServiceType.slack)
+    if not integration or not integration.access_token:
+        raise ValueError("Slack 연동이 안 되어있습니다.")
+    
+    extra_config = {**(integration.extra_config or {}) , "channel_id": channel_id}
+    return repository.update_tokens(
+        db,
+        workspace_id=workspace_id,
+        access_token=integration.access_token,
+        service=ServiceType.slack,
+        extra_config=extra_config,
+    )

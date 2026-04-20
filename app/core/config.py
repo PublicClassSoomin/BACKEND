@@ -7,16 +7,16 @@ class Settings(BaseSettings):
     ENV: str = "dev"
     DEBUG: bool = False
     DATABASE_URL: Optional[str] = None
-    MONGODB_URL: Optional[str] = None
-    CHROMA_HOST: str = "localhost"
-    CHROMA_PORT: int = 8001
-
     SECRET_KEY: str = "secret_key"
     ALGORITHM: str = "HS256"
     REDIS_URL: str = "redis://localhost:6379"
+    MONGODB_URL: str = "mongodb://localhost:27017"
+    CHROMA_HOST: str = "localhost"
+    CHROMA_PORT: int = 8001
 
-    # 2. AI
+    # 2. AI 
     OPENAI_API_KEY: Optional[str] = None
+    GEMINI_API_KEY: Optional[str] = None
     ANTHROPIC_API_KEY: Optional[str] = None
     TAVILY_API_KEY: Optional[str] = None
 
@@ -46,11 +46,7 @@ class Settings(BaseSettings):
     # 7. 카카오
     KAKAO_REST_API_KEY: Optional[str] = None
 
-    # 8. n8n
-    N8N_BASE_URL: str = "http://localhost:5678"
-    N8N_API_KEY: Optional[str] = None
-
-    # 9. FRONTEND
+    # 8. FRONTEND
     FRONTEND_URL: str = "http://localhost:5173"
     
     model_config = SettingsConfigDict(
