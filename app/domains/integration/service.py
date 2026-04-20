@@ -234,7 +234,7 @@ def connect_kakao(db: Session, workspace_id: int, api_key: str) -> Integration:
     )
 
 
-# --- 토큰 갱신 ---
+# --- Google Token 확인 및 갱신 ---
 
 async def get_valid_google_token(db: Session, workspace_id: int) -> str:
     integration = repository.get_integration(db, workspace_id, ServiceType.google_calendar)
