@@ -61,6 +61,6 @@ async def chatbot_summary(meeting_id: str):
     }
     result = summary_node(state)
     return ChatbotSummaryResponse(
-        summary=result["chat_response"],
+        summary=result["summary"],
         generated_at=datetime.now()
     )

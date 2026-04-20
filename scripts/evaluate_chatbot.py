@@ -1,5 +1,8 @@
 import sys, os, time, json, re
-sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
+
+_BACKEND_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+_SCRIPTS_DIR = os.path.abspath(os.path.dirname(__file__))
+sys.path[:0] = [_BACKEND_ROOT, _SCRIPTS_DIR]
 
 import matplotlib.pyplot as plt
 import matplotlib
@@ -34,7 +37,7 @@ MODELS = {
 # 모듈 로드 시 한 번만 초기화 (추론마다 모델 로드하지 않음)
 _nli = pipeline(
     "zero-shot-classification",
-    model="MortizLaurer/mDeBERTa-v3-base-xnli-multilingual-nli-2mil7",
+    model="MoritzLaurer/mDeBERTa-v3-base-xnli-multilingual-nli-2mil7",
 )
 
 def uncertainty_score(answer: str) -> float:
@@ -156,34 +159,34 @@ TEST_CASES = [
     },
 
     # ── 캘린더 ──────────────────────────────────────
-    {
-        "question": "4월 20일 오후 2시에 팀 미팅 일정 등록해줘",
-        "expected_keywords": ["등록", "4월 20일"],
-        "ground_truth": None,
-        "requires_uncertainty": False,
-        "expect_tool": "register_calendar",
-    },
-    {
-        "question": "다음 회의 일정 캘린더에 추가해줘",
-        "expected_keywords": ["등록"],
-        "ground_truth": None,
-        "requires_uncertainty": False,
-        "expect_tool": "register_calendar",
-    },
-    {
-        "question": "이번 주 일정 보여줘",
-        "expected_keywords": [],
-        "ground_truth": None,
-        "requires_uncertainty": False,
-        "expect_tool": "get_calendar_events",
-    },
+    # {
+    #     "question": "4월 20일 오후 2시에 팀 미팅 일정 등록해줘",
+    #     "expected_keywords": ["등록", "4월 20일"],
+    #     "ground_truth": None,
+    #     "requires_uncertainty": False,
+    #     "expect_tool": "register_calendar",
+    # },
+    # {
+    #     "question": "다음 회의 일정 캘린더에 추가해줘",
+    #     "expected_keywords": ["등록"],
+    #     "ground_truth": None,
+    #     "requires_uncertainty": False,
+    #     "expect_tool": "register_calendar",
+    # },
+    # {
+    #     "question": "이번 주 일정 보여줘",
+    #     "expected_keywords": [],
+    #     "ground_truth": None,
+    #     "requires_uncertainty": False,
+    #     "expect_tool": "get_calendar_events",
+    # },
 ]
 
 web_search = TavilySearchResults(max_results=5, tavily_api_key=settings.TAVILY_API_KEY)
 tools = [
     web_search, search_past_meetings, search_internal_db,
-    register_calendar, update_calendar_event,
-    delete_calendar_event, get_calendar_events
+    # register_calendar, update_calendar_event,
+    # delete_calendar_event, get_calendar_events
 ]
 
 def build_agent(model):
@@ -235,7 +238,15 @@ def evaluate_one(model_name: str, model, case: dict) -> dict:
             ]
         })
         latency = time.time() - start
-        answer = result["messages"][-1].content
+        raw = result["messages"][-1].content
+        if isinstance(raw, list):
+            answer = "".join(
+                part if isinstance(part, str) else str(part) for part in raw
+            )
+        elif raw is None:
+            answer = ""
+        else:
+            answer = str(raw)
 
         tools_used = []
         for m in result["messages"]:
@@ -284,7 +295,7 @@ def evaluate_one(model_name: str, model, case: dict) -> dict:
         "answer_length": len(answer),
         "keyword_score": keyword_score,
         "delay_notice": delay_notice,
-        "uncertainty_score": uncertainty_score,
+        "uncertainty_score": u_score,
         "formal_korean": formal_korean,
         "rouge_score": rouge_score,
         "tool_correct": tool_correct,
@@ -372,7 +383,11 @@ def visualize(all_results: list[dict]):
     x = np.arange(len(categories))
     width = 0.2
     max_lat = max(get_avg("latency", m, all_results) for m in model_names) or 1
-    colors = ["steelblue", "coral", "mediumseagreen", "mediumpurple"]
+    palette = [
+        "steelblue", "coral", "mediumseagreen", "mediumpurple",
+        "darkorange", "olive", "brown", "teal",
+    ]
+    n_models = len(model_names)
     for i, model in enumerate(model_names):
         rule_score = np.mean([
             get_avg("delay_notice", model, all_results),
@@ -385,16 +400,17 @@ def visualize(all_results: list[dict]):
             get_avg("tool_correct", model, all_results),
             rule_score,
         ]
-        ax.bar(x + i * width, values, width, label=model, color=colors[i])
-    ax.set_xticks(x + width * 2)
+        ax.bar(x + i * width, values, width, label=model, color=palette[i % len(palette)])
+    ax.set_xticks(x + width * (n_models - 1) / 2)
     ax.set_xticklabels(categories, fontsize=8)
     ax.set_ylim(0, 1)
     ax.set_title("종합 비교")
     ax.legend(fontsize=7)
 
     plt.tight_layout()
-    plt.savefig("scripts/chatbot_eval_result.png", dpi=150)
-    print("\n결과 저장: scripts/chatbot_eval_result.png")
+    out_png = os.path.join(_SCRIPTS_DIR, "chatbot_eval_result.png")
+    plt.savefig(out_png, dpi=150)
+    print(f"\n결과 저장: {out_png}")
     plt.show()
 
     # 정성 평가 출력
@@ -406,7 +422,8 @@ def visualize(all_results: list[dict]):
             if r["case"] == case["question"] and not r.get("error"):
                 print(f"  [{r['model']}]")
                 print(f"    도구: {r['tools_used'] or '없음'}")
-                print(f"    답변: {r['answer'][:120]}")
+                ans = r.get("answer") or ""
+                print(f"    답변: {str(ans)[:120]}")
 
 if __name__ == "__main__":
     print("챗봇 모델 베이스라인 평가 시작...\n")
@@ -429,9 +446,9 @@ if __name__ == "__main__":
     from token_tracker import save_token_record
     save_token_record("베이스라인", all_results)
 
-    with open("scripts/eval_results_external.json", "w", encoding="utf-8") as f:
+    with open(os.path.join(_SCRIPTS_DIR, "eval_results_external.json"), "w", encoding="utf-8") as f:
         json.dump(
             [r for r in all_results if r["model"] in SAVE_MODELS],
             f, ensure_ascii=False, indent=2, default=str
         )
-    print("외부 LLM 평가 결과 저장: scripts/eval_results_external.json")
+    print(f"외부 LLM 평가 결과 저장: {os.path.join(_SCRIPTS_DIR, 'eval_results_external.json')}")

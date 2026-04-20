@@ -14,10 +14,6 @@ class ChatbotMessageResponse(BaseModel):
     result: dict
     timestamp: datetime
 
-class ChatbotSummaryResponse(BaseModel):
-    summary: str
-    generated_at: datetime
-
 class ChatbotHistoryMessage(BaseModel):
     role: str
     content: str
@@ -103,3 +99,7 @@ class SummaryResponse(BaseModel):
     next_meeting: Optional[str] = None
     previous_followups: list[PreviousMeetingFollowUp] = [] # 이전 회의 follow-up 추적
     hallucination_flags: list[HallucinationFlag] = [] # 발화 근거 검증 결과
+
+class ChatbotSummaryResponse(BaseModel):
+    summary: SummaryResponse
+    generated_at: datetime
