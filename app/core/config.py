@@ -1,4 +1,5 @@
 # app\core\config.py
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Optional
 
@@ -9,7 +10,7 @@ class Settings(BaseSettings):
     """
     # 1. 시스템 기본 설정
     ENV : str = "dev"
-    DEBUG : bool
+    DEBUG : bool = False
     DATABASE_URL: Optional[str] = None
     SECRET_KEY: str = "secret_key"
     ALGORITHM: str = "HS256"
@@ -28,6 +29,19 @@ class Settings(BaseSettings):
     JIRA_CLIENT_ID: Optional[str] = None
     JIRA_CLIENT_SECRET: Optional[str] = None
     REDIRECT_URI: str = "http://localhost:8000/api/v1/integrations/jira/callback"
+
+    @field_validator("DEBUG", mode="before")
+    @classmethod
+    def parse_debug(cls, value):
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, str):
+            normalized = value.strip().lower()
+            if normalized in {"release", "prod", "production", "false", "0", "no", "off"}:
+                return False
+            if normalized in {"debug", "dev", "development", "true", "1", "yes", "on"}:
+                return True
+        return value
 
     # .env 읽기 위한 설정
     model_config = SettingsConfigDict(
