@@ -10,8 +10,6 @@ from app.domains.user.router import router as user_router
 from app.domains.workspace.models import Department, Workspace
 from app.domains.workspace.router import router as workspace_router
 from app.domains.integration.router import router as integration_router
-from app.domains.meeting.models import Meeting
-from app.domains.meeting.router import router as meeting_router
 
 
 app = FastAPI(title="Meeting Assistant Agent API", lifespan=lifespan)
@@ -45,4 +43,3 @@ app.include_router(
     prefix="/api/v1/integrations",
     tags=["Integrations"],
 )
-app.include_router(meeting_router, prefix="/api/v1/meetings", tags=["Meetings"])

@@ -4,8 +4,7 @@ uvicorn[standard]==0.44.0
 python-multipart==0.0.24
 
 # AI & Agents
-langchain>=1.2.15
-langchain-text-splitters>=0.3.0
+langchain==1.2.15
 langchain-openai==1.1.12
 langchain-anthropic==1.4.0
 langgraph==1.1.6
@@ -30,21 +29,10 @@ chromadb==1.0.7
 # MongoDB
 motor==3.7.0
 
-# Cacheß
+# Cache
 redis==7.4.0
 
 # Utils & Formatting
 python-dotenv==1.2.2
 httpx==0.28.1
 pytest==9.0.2
-pdf2image==1.17.0
-python-pptx==1.0.2
-pypdf==6.10.2
-beautifulsoup4==4.12.3      # HTML 태그 제거 후 본문 추출
-
-# Scripts & Evaluation
-matplotlib>=3.8.0
-numpy>=1.26.0
-transformers>=5.5.4
-torch>=2.2.0
-sentencepiece>=0.2.0
