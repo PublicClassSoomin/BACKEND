@@ -115,18 +115,18 @@ INSERT INTO integrations (id, workspace_id, service, access_token, refresh_token
 -- -------------------------------------------------------------------
 -- meetings (3) — these are what Home dashboard renders as cards
 -- -------------------------------------------------------------------
-INSERT INTO meetings (id, workspace_id, created_by, title, meeting_type, status, scheduled_at, started_at, ended_at, google_calendar_event_id, created_at, updated_at) VALUES
-  (1, 1, 1, 'WS1 Scheduled: Kickoff', 'kickoff', 'scheduled',
+INSERT INTO meetings (id, workspace_id, created_by, title, meeting_type, status, room_name, scheduled_at, started_at, ended_at, google_calendar_event_id, created_at, updated_at) VALUES
+  (1, 1, 1, 'WS1 Scheduled: Kickoff', 'kickoff', 'scheduled', 'A 회의실',
     DATE_ADD(NOW(), INTERVAL 1 DAY), NULL, NULL,
     'gcal_evt_001',
     DATE_SUB(NOW(), INTERVAL 2 DAY), DATE_SUB(NOW(), INTERVAL 1 DAY)
   ),
-  (2, 1, 1, 'WS1 In Progress: Daily Sync', 'daily', 'in_progress',
+  (2, 1, 1, 'WS1 In Progress: Daily Sync', 'daily', 'in_progress', 'B 회의실',
     DATE_SUB(NOW(), INTERVAL 40 MINUTE), DATE_SUB(NOW(), INTERVAL 35 MINUTE), NULL,
     NULL,
     DATE_SUB(NOW(), INTERVAL 1 DAY), DATE_SUB(NOW(), INTERVAL 30 MINUTE)
   ),
-  (3, 1, 1, 'WS1 Done: Product Review', 'review', 'done',
+  (3, 1, 1, 'WS1 Done: Product Review', 'review', 'done', 'C 회의실',
     DATE_SUB(NOW(), INTERVAL 2 DAY), DATE_SUB(NOW(), INTERVAL 2 DAY) - INTERVAL 50 MINUTE, DATE_SUB(NOW(), INTERVAL 2 DAY),
     NULL,
     DATE_SUB(NOW(), INTERVAL 3 DAY), DATE_SUB(NOW(), INTERVAL 2 DAY)

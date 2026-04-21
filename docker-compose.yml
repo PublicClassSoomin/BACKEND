@@ -1,8 +1,6 @@
 version: "3.9"
 
 services:
-<<<<<<< HEAD
-=======
   # ── Nginx (HTTPS Reverse Proxy) ───────────────────────
   nginx:
     image: nginx:alpine
@@ -25,7 +23,6 @@ services:
     volumes:
       - ./certbot/conf:/etc/letsencrypt
       - ./certbot/www:/var/www/certbot
->>>>>>> main
 
   # ── MySQL ─────────────────────────────────────────────
   mysql:
@@ -76,7 +73,6 @@ services:
     volumes:
       - chroma_data:/chroma/chroma
 
-<<<<<<< HEAD
   # ── n8n ───────────────────────────────────────────────
   n8n:
     image: n8nio/n8n:latest
@@ -90,15 +86,9 @@ services:
       N8N_BASIC_AUTH_PASSWORD: admin1234
     volumes:
       - n8n_data:/home/node/.n8n
-
-=======
->>>>>>> main
 volumes:
   mysql_data:
   mongo_data:
   redis_data:
   chroma_data:
-<<<<<<< HEAD
   n8n_data:
-=======
->>>>>>> main
