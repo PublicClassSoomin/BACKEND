@@ -1,21 +1,26 @@
 # app\main.py
-'''
-RailWay 배포 테스트
-'''
+"""
+Railway 배포 환경에서도 PyMySQL을 MySQLdb 호환 드라이버로 사용할 수 있게 설정합니다.
+"""
 import pymysql
-pymysql.install_as_MySQLdb()
-
-# -------------------------------------------------
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+<<<<<<< HEAD
 # 각 도메인에서 router 만들어서 연결해주세요.
+=======
+
+>>>>>>> main
 from app.api.v1.api_router import api_router
 from app.core.lifespan import lifespan
 
-app = FastAPI(title="Meeting Assistant Agent API", lifespan=lifespan, redirect_slashes=False)
+pymysql.install_as_MySQLdb()
 
-# 웹 프론트엔드 통신 허용 (CORS)
+app = FastAPI(
+    title="Meeting Assistant Agent API",
+    lifespan=lifespan,
+    redirect_slashes=False,
+)
+
 app.add_middleware(
     CORSMiddleware,
     # Vite dev servers
@@ -31,14 +36,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 루트 경로
+
 @app.get("/")
 async def root():
     return {"message": "Meeting Assistant Agent API is running!"}
+
 
 @app.get("/health")
 async def health_check():
     return {"status": "healthy"}
 
-# 통합 라우터 연결
+
 app.include_router(api_router, prefix="/api/v1")

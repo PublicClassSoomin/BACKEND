@@ -1,15 +1,12 @@
 # app\api\v1\api_router.py
 from fastapi import APIRouter
 
-# 각 도메인별 라우터 임포트
-# from app.domains.meeting.router import router as meeting_router
-# from app.domains.intelligence.router import router as intelligence_router
-from app.domains.knowledge.router import router as knowledge_router
 from app.domains.action.router import router as action_router
-from app.domains.vision.router import router as vision_router
-# from app.domains.user.router import router as user_router
-# from app.domains.workspace.router import router as workspace_router
 from app.domains.integration.router import router as integration_router
+from app.domains.knowledge.router import router as knowledge_router
+from app.domains.user.router import router as user_router
+from app.domains.vision.router import router as vision_router
+from app.domains.workspace.router import router as workspace_router
 
 # (과거 구조에서 사용한 경우만 아래에서 임포트 해제/대체!)
 # from app.api.v1.routers.workspaces import router as workspaces_router
@@ -17,6 +14,7 @@ from app.domains.integration.router import router as integration_router
 
 api_router = APIRouter()
 
+<<<<<<< HEAD
 # 1. 사용자 및 인증 도메인 (회원가입, 로그인, 음성 특징 등록)
 # api_router.include_router(user_router, prefix="/users", tags=["Users"])
 
@@ -43,4 +41,11 @@ api_router.include_router(vision_router, prefix="/visions", tags=["Vision"])
 # api_router.include_router(workspaces_router, prefix="/workspaces", tags=["Workspaces"])
 
 # 8. API 연동 통합 도메인
+=======
+api_router.include_router(user_router, prefix="/users", tags=["Users"])
+api_router.include_router(workspace_router, prefix="/workspaces", tags=["Workspace"])
+>>>>>>> main
 api_router.include_router(integration_router, prefix="/integrations", tags=["Integration"])
+api_router.include_router(knowledge_router, prefix="/knowledges", tags=["Knowledge"])
+api_router.include_router(action_router, prefix="/actions", tags=["Actions"])
+api_router.include_router(vision_router, prefix="/visions", tags=["Vision"])
