@@ -278,8 +278,6 @@ async def get_valid_google_token(db: Session, workspace_id: int) -> str:
 #===============================================================
 
 # Slack API
-
-
 async def get_slack_channel(db: Session, workspace_id: int) -> List[dict]:
     """
     슬랙 연동후 채널을 선택하기 위해 채널 목록 반환
@@ -291,6 +289,25 @@ async def get_slack_channel(db: Session, workspace_id: int) -> List[dict]:
     slack_client = SlackClient(integration.access_token)
     return await slack_client.get_public_channels()
 
+
+async def save_slack_channel(db: Session, workspace_id: int, channel_id: str) -> Integration:
+    """
+    유저가 선택한 Slack 채널 ID를 extra_config 에 저장
+    """
+    integration = repository.get_integration(db, workspace_id, ServiceType.slack)
+    if not integration or not integration.access_token:
+        raise ValueError("Slack 연동이 안 되어있습니다.")
+    
+    extra_config = {**(integration.extra_config or {}) , "channel_id": channel_id}
+    return repository.update_tokens(
+        db,
+        workspace_id=workspace_id,
+        access_token=integration.access_token,
+        service=ServiceType.slack,
+        extra_config=extra_config,
+    )
+
+# Google Calendar API
 async def list_google_calendar_events(
     db: Session,
     workspace_id: int,
@@ -316,19 +333,3 @@ async def list_google_calendar_events(
     return events
 
 
-async def save_slack_channel(db: Session, workspace_id: int, channel_id: str) -> Integration:
-    """
-    유저가 선택한 Slack 채널 ID를 extra_config 에 저장
-    """
-    integration = repository.get_integration(db, workspace_id, ServiceType.slack)
-    if not integration or not integration.access_token:
-        raise ValueError("Slack 연동이 안 되어있습니다.")
-    
-    extra_config = {**(integration.extra_config or {}) , "channel_id": channel_id}
-    return repository.update_tokens(
-        db,
-        workspace_id=workspace_id,
-        access_token=integration.access_token,
-        service=ServiceType.slack,
-        extra_config=extra_config,
-    )
