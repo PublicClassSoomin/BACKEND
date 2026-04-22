@@ -96,3 +96,7 @@ CLAUDE.md
 .vscode/settings.json
 a.txt
 scripts/slack_test.py
+.cursor
+.claude
+.cursorrules
+AGENTS.md
