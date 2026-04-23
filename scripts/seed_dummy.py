@@ -18,6 +18,7 @@ import sys, os, json, argparse
 import redis
 from pymongo import MongoClient
 from datetime import datetime
+from sqlalchemy import create_engine, text
 
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 from app.core.config import settings
@@ -27,7 +28,40 @@ r = redis.from_url(settings.REDIS_URL)
 mongo_db = MongoClient(settings.MONGODB_URL)["workb"]
 
 # 테스트에 쓸 meeting_id. --meeting-id 인자로 변경 가능.
-DEFAULT_MEETING_ID = "1"
+DEFAULT_MEETING_ID = "2"
+
+def seed_mysql(meeting_id: int, workspace_id: int, flush: bool):
+    engine = create_engine(settings.DATABASE_URL)
+    with engine.connect() as conn:
+        if flush:
+            conn.execute(text("DELETE FROM meeting_participants WHERE meeting_id = :id"), 
+            {"id: meeting_id"})
+            conn.execute(text("DELETE FROM meetings WHERE id = :id"),
+            {"id": meeting_id})
+            print(f"  [MySQL] 기존 데이터 삭제: meeting_id={meeting_id}")
+
+        row = conn.execute(
+             text("SELECT id FROM users WHERE workspace_id = :wid LIMIT 1"),
+             {"wid": workspace_id}
+        ).fetchone()
+        created_by = row.id if row else 1
+
+        conn.execute(
+            text("""
+                INSERT INTO meetings 
+                    (id, workspace_id, created_by, title, room_name, status, created_at, updated_at)
+                VALUES 
+                    (:id, :workspace_id, :created_by, :title, '테스트 룸', 'done', NOW(), NOW())
+            """),
+            {
+                'id': meeting_id,
+                'workspace_id': workspace_id,
+                'created_by': created_by,
+                'title': f'{datetime.now().strftime("%Y-%m-%d")} 백엔드 아키텍처 논의',
+            }
+        )
+        conn.commit()
+        print(f"  [MySQL] 회의 생성: meeting_id={meeting_id}, workspace_id={workspace_id} 삽입")
 
 # ------------------------------------------------------------------
 # 더미 발화 데이터
@@ -69,8 +103,9 @@ SPEAKERS = {
 # search_past_meetings()가 $text 인덱스로 검색하므로
 # summary 필드에 키워드가 충분히 있어야 검색에 걸린다.
 PAST_MEETING = {
-    "meeting_id": "1",
-    "title": "2026-04-10 백엔드 아키텍처 사전 논의",
+    "meeting_id": "2",
+    "workspace_id": 2,
+    "title": "2026-04-23 백엔드 아키텍처 사전 논의",
     "summary": (
         "FastAPI 도메인 구조 개편 필요성에 대해 논의함. "
         "인증 모듈 JWT 토큰 만료 처리 누락 이슈 제기됨. "
@@ -141,14 +176,12 @@ def main():
     parser = argparse.ArgumentParser(description="더미 데이터 삽입")
     parser.add_argument("--meeting-id", default=DEFAULT_MEETING_ID, help="테스트용 meeting_id")
     parser.add_argument("--flush", action="store_true", help="기존 데이터 삭제 후 재삽입")
+    parser.add_argument("--workspace-id", type=int, default=2, help="테스트용 workspace_id")
     args = parser.parse_args()
 
-    print(f"\n더미 데이터 삽입 시작 (meeting_id={args.meeting_id}, flush={args.flush})")
+    seed_mysql(int(args.meeting_id), args.workspace_id, args.flush)
     seed_redis(args.meeting_id, args.flush)
     seed_mongo(args.flush)
-    print("\n완료. /docs에서 아래로 테스트하세요:")
-    print(f"  POST /api/v1/knowledge/meetings/{args.meeting_id}/chatbot/summary")
-    print(f"  POST /api/v1/knowledge/meetings/{args.meeting_id}/chatbot/message")
 
 if __name__ == "__main__":
     main()
