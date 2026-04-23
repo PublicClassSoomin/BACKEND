@@ -1,4 +1,6 @@
 # app\domains\knowledge\router.py
+import uuid
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException
 from datetime import date, datetime
 from typing import Optional
 
@@ -15,6 +17,7 @@ from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.core.graph.workflow import knowledge_app
+from app.domains.workspace.deps import require_workspace_member
 from app.domains.knowledge.schemas import (
     ChatbotHistoryMessage,
     ChatbotHistoryResponse,
@@ -41,6 +44,7 @@ router = APIRouter()
 def search_workspace_meetings(
     workspace_id: int,
     db: Session = Depends(get_db),
+    _member: int = Depends(require_workspace_member),
     keyword: Optional[str] = Query(None, description="회의 제목 부분 일치 검색"),
     from_date: Optional[date] = Query(None, description="scheduled_at 기준 시작일(포함)"),
     to_date: Optional[date] = Query(None, description="scheduled_at 기준 종료일(포함)"),
@@ -70,8 +74,9 @@ _EXT_MAP = {
 }
 
 @router.post("/workspace/{workspace_id}/chatbot/message")
-async def chatbot_message(workspace_id: int, req: ChatbotMessageRequest):
-    meeting_id = req.meeting_id
+async def chatbot_message(workspace_id: int, req: ChatbotMessageRequest, session_id: Optional[str] = None):
+    session_id = session_id or str(uuid.uuid4())
+    meeting_id = req.meeting_id # 회의 중일 때만 전달
     state = {
         "meeting_id": meeting_id,
         "workspace_id": workspace_id,
@@ -81,14 +86,14 @@ async def chatbot_message(workspace_id: int, req: ChatbotMessageRequest):
     }
     result = await knowledge_app.ainvoke(state)
 
-    await repository.save_chat_log(meeting_id, req.session_id, "user", req.message, "")
+    await repository.save_chat_log(meeting_id, session_id, "user", req.message, "")
     await repository.save_chat_log(
-        meeting_id, req.session_id, "assistant", 
+        meeting_id, session_id, "assistant", 
         result["chat_response"], result["function_type"]
     )
 
     return ChatbotMessageResponse(
-        session_id=req.session_id,
+        session_id=session_id,
         function_type=result["function_type"],
         answer=result["chat_response"],
         result={},
