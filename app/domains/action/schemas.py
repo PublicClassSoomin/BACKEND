@@ -1,6 +1,7 @@
 # app\domains\action\schemas.py
 from pydantic import BaseModel
 from typing import Optional, List
+from datetime import datetime
 
 # =================================================================
 # 공통
@@ -8,6 +9,36 @@ from typing import Optional, List
 class ExportResponse(BaseModel):
     status:str = "processing"
 
+# =================================================================
+# 회의록
+# =================================================================
+class MinutesResponse(BaseModel):
+    meeting_id: int
+    content:    Optional[str] = None
+    updated_at: datetime
+
+class MinutesPatchRequest(BaseModel):
+    content: str
+
+# =================================================================
+# 보고서
+# =================================================================
+class ReportResponse(BaseModel):
+    id:             int
+    format:         str
+    title:          str
+    thumbnail_url:  Optional[str] = None
+    updated_at:     datetime
+
+    class Config:
+        from_attributes = True
+
+class ReportGenerateRequest(BaseModel):
+    format: str # markdown | excel | wbs | html
+
+class ReportPatchRequest(BaseModel):
+    content: str
+    
 # =================================================================
 # slack
 # =================================================================
