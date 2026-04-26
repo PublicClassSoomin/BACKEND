@@ -2,6 +2,7 @@
 import io
 import json
 import markdown as md_lib
+from urllib.parse import quote
 from fastapi import APIRouter, Depends, BackgroundTasks, Query, HTTPException
 from fastapi.responses import HTMLResponse, FileResponse, StreamingResponse
 from sqlalchemy.orm import Session
@@ -81,24 +82,56 @@ def view_report(
     if not report or report.meeting_id != meeting_id:
         raise HTTPException(status_code=404, detail="보고서를 찾을 수 없습니다.")
 
-    if report.format in (ReportFormat.markdown, ReportFormat.html):
-        content = report.content
-        if not content:
-            minute  = repository.get_meeting_minute(db, meeting_id)
-            content = minute.content if minute else ""
-        html_body = md_lib.markdown(content or "", extensions=["tables", "fenced_code"])
-        return f"<html><body style='max-width:800px;margin:auto;padding:2rem'>{html_body}</body></html>"
+    # HTML 보고서 — content에 완성된 HTML이 저장됨
+    if report.format == ReportFormat.html:
+        if report.content:
+            return report.content
+        raise HTTPException(status_code=404, detail="HTML 보고서 내용이 없습니다.")
 
+    # Markdown — 스타일된 HTML로 변환
+    if report.format == ReportFormat.markdown:
+        content   = report.content or ""
+        html_body = md_lib.markdown(content, extensions=["tables", "fenced_code"])
+        return f"""<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
+<style>body{{font-family:'Apple SD Gothic Neo',sans-serif;max-width:800px;margin:40px auto;
+padding:0 24px;color:#1a1a2e;line-height:1.8}}
+h1,h2,h3{{color:#5668F3}}table{{width:100%;border-collapse:collapse}}
+th{{background:#EEF0FE;color:#5668F3;padding:8px 12px;text-align:left;border:1px solid #d0d5f5}}
+td{{padding:8px 12px;border:1px solid #e5e7eb}}tr:nth-child(even) td{{background:#f9faff}}
+code{{background:#f1f5f9;padding:2px 6px;border-radius:4px}}
+pre{{background:#f1f5f9;padding:16px;border-radius:8px;overflow-x:auto}}</style>
+</head><body>{html_body}</body></html>"""
+
+    # WBS — 구조화된 HTML 카드 뷰
     if report.format == ReportFormat.wbs:
-        wbs  = json.loads(report.content or "{}")
-        rows = []
+        wbs   = json.loads(report.content or "{}")
+        HIGH_BADGE = '<span style="float:right;font-size:12px;background:#fee2e2;color:#dc2626;padding:2px 8px;border-radius:10px">high</span>'
+
+        def _task_li(t: dict) -> str:
+            badge = HIGH_BADGE if t.get("priority") == "high" else ""
+            return (
+                f"<li style='padding:6px 0;border-bottom:1px solid #EEF0FE'>"
+                f"<strong style='color:#5668F3'>[{t.get('assignee','')}]</strong> "
+                f"{t.get('title','')}{badge}</li>"
+            )
+
+        cards = []
         for epic in wbs.get("epics", []):
-            rows.append(f"<h2>{epic['title']}</h2><ul>")
-            for task in epic.get("tasks", []):
-                rows.append(f"<li>[{task.get('assignee','')}] {task['title']}</li>")
-            rows.append("</ul>")
-        body = "".join(rows)
-        return f"<html><body style='max-width:800px;margin:auto;padding:2rem'>{body}</body></html>"
+            tasks_html = "".join(_task_li(t) for t in epic.get("tasks", []))
+            title = epic.get("title", "")
+            cards.append(
+                f'<div style="background:white;border-radius:12px;padding:24px;'
+                f'margin-bottom:16px;box-shadow:0 1px 4px rgba(86,104,243,0.1)">'
+                f'<h2 style="color:#5668F3;font-size:16px;margin-bottom:12px;padding-bottom:8px;'
+                f'border-bottom:2px solid #EEF0FE">{title}</h2>'
+                f'<ul style="list-style:none;padding:0">{tasks_html}</ul></div>'
+            )
+
+        return f"""<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
+<style>body{{font-family:'Apple SD Gothic Neo',sans-serif;background:#f8f9ff;
+padding:32px 24px;color:#1a1a2e}}
+h1{{color:#5668F3;margin-bottom:24px}}</style></head>
+<body><h1>WBS</h1>{"".join(cards)}</body></html>"""
 
     raise HTTPException(status_code=400, detail="이 포맷은 view를 지원하지 않습니다.")
 
@@ -115,38 +148,39 @@ def download_report(
     if not report or report.meeting_id != meeting_id:
         raise HTTPException(status_code=404, detail="보고서를 찾을 수 없습니다.")
 
+    def disposition(filename: str) -> str:
+        encoded = quote(filename, safe='')
+        return f"attachment; filename*=UTF-8''{encoded}"
+
     if report.format == ReportFormat.excel:
         if not report.file_url:
             raise HTTPException(status_code=404, detail="파일이 아직 생성되지 않았습니다.")
         return FileResponse(
             report.file_url,
-            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            filename=f"{report.title}.xlsx",
+            media_type="application/vnd.openxmlformats-officedocument.spre adsheetml.sheet",
+            headers={"Content-Disposition": disposition(f"{report.title}.xlsx")},
         )
 
     if report.format == ReportFormat.html:
-        minute   = repository.get_meeting_minute(db, meeting_id)
-        content  = minute.content if minute else ""
-        html_str = md_lib.markdown(content or "", extensions=["tables", "fenced_code"])
-        html     = f"<html><body style='max-width:800px;margin:auto;padding:2rem'>{html_str}</body></html>"
+        html = report.content or ""
         return StreamingResponse(
             io.BytesIO(html.encode("utf-8")),
             media_type="text/html",
-            headers={"Content-Disposition": f'attachment; filename="{report.title}.html"'},
+            headers={"Content-Disposition": disposition(f"{report.title}.html")},
         )
 
     if report.format == ReportFormat.markdown:
         return StreamingResponse(
             io.BytesIO((report.content or "").encode("utf-8")),
             media_type="text/markdown",
-            headers={"Content-Disposition": f'attachment; filename="{report.title}.md"'},
+            headers={"Content-Disposition": disposition(f"{report.title}.md")},
         )
 
     if report.format == ReportFormat.wbs:
         return StreamingResponse(
             io.BytesIO((report.content or "{}").encode("utf-8")),
             media_type="application/json",
-            headers={"Content-Disposition": f'attachment; filename="{report.title}.json"'},
+            headers={"Content-Disposition": disposition(f"{report.title}.json")},
         )
 
     raise HTTPException(status_code=400, detail="다운로드 불가 포맷입니다.")

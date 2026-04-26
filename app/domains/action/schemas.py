@@ -45,6 +45,7 @@ class ReportPatchRequest(BaseModel):
 class SlackExportRequest(BaseModel):
     channel_id: Optional[str] = None
     include_action_items: bool = True
+    include_reports: bool = False
 
 # =================================================================
 # notion
