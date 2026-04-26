@@ -35,7 +35,7 @@ router = APIRouter()
     response_model=CreateMeetingResponse,
     status_code=201,
 )
-def create_workspace_meeting(
+async def create_workspace_meeting(
     workspace_id: int,
     body: CreateMeetingRequest,
     db: Session = Depends(get_db),
@@ -48,7 +48,7 @@ def create_workspace_meeting(
     - 생성자는 참석자에 포함되며 is_host=1
     """
     try:
-        return MeetingCreateService.create_meeting(
+        return await MeetingCreateService.create_meeting(
             db, workspace_id, current_user_id, body
         )
     except HTTPException:
@@ -134,7 +134,7 @@ def get_workspace_meeting(
     "/workspaces/{workspace_id}/{meeting_id}",
     response_model=DeleteMeetingResponse,
 )
-def delete_workspace_meeting(
+async def delete_workspace_meeting(
     workspace_id: int,
     meeting_id: int,
     db: Session = Depends(get_db),
@@ -142,7 +142,7 @@ def delete_workspace_meeting(
 ):
     """회의 및 연관 데이터 삭제."""
     try:
-        return MeetingDeleteService.delete_meeting(
+        return await MeetingDeleteService.delete_meeting(
             db=db,
             workspace_id=workspace_id,
             meeting_id=meeting_id,
@@ -161,7 +161,7 @@ def delete_workspace_meeting(
     "/workspaces/{workspace_id}/{meeting_id}",
     response_model=CreateMeetingResponse,
 )
-def patch_workspace_meeting(
+async def patch_workspace_meeting(
     workspace_id: int,
     meeting_id: int,
     body: UpdateMeetingRequest,
@@ -170,7 +170,7 @@ def patch_workspace_meeting(
 ):
     """회의 정보 수정."""
     try:
-        return MeetingUpdateService.update_meeting(
+        return await MeetingUpdateService.update_meeting(
             db=db,
             workspace_id=workspace_id,
             meeting_id=meeting_id,
