@@ -28,7 +28,7 @@ r = redis.from_url(settings.REDIS_URL)
 mongo_db = MongoClient(settings.MONGODB_URL)["workb"]
 
 # 테스트에 쓸 meeting_id. --meeting-id 인자로 변경 가능.
-DEFAULT_MEETING_ID = "2"
+DEFAULT_MEETING_ID = "3"
 
 def seed_mysql(meeting_id: int, workspace_id: int, flush: bool):
     engine = create_engine(settings.DATABASE_URL)
@@ -46,12 +46,29 @@ def seed_mysql(meeting_id: int, workspace_id: int, flush: bool):
         ).fetchone()
         created_by = row.id if row else 1
 
+        # 이전 회의 (past meeting - PAST_MEETING의 meeting_id와 맞춤)
+        conn.execute(
+            text("""                                                                                               
+                INSERT IGNORE INTO meetings                                                                          
+                    (id, workspace_id, created_by, title, room_name, status, created_at, updated_at)               
+                VALUES                                                                                               
+                    (:id, :workspace_id, :created_by, :title, '테스트 룸', 'done', '2026-04-10 10:00:00', '2026-04-10 10:00:00')                                                                                                          
+            """),                                                                                                  
+            {
+                "id": meeting_id - 1,  # 현재 meeting_id - 1 = 이전 회의                                             
+                "workspace_id": workspace_id,
+                "created_by": created_by,                                                                            
+                "title": "2026-04-10 백엔드 아키텍처 사전 논의",                                                   
+            } 
+        )
+
+        # 현재 회의
         conn.execute(
             text("""
                 INSERT INTO meetings 
                     (id, workspace_id, created_by, title, room_name, status, created_at, updated_at)
                 VALUES 
-                    (:id, :workspace_id, :created_by, :title, '테스트 룸', 'done', NOW(), NOW())
+                    (:id, :workspace_id, :created_by, :title, '테스트 룸', 'in_progress', NOW(), NOW())
             """),
             {
                 'id': meeting_id,
@@ -103,7 +120,7 @@ SPEAKERS = {
 # search_past_meetings()가 $text 인덱스로 검색하므로
 # summary 필드에 키워드가 충분히 있어야 검색에 걸린다.
 PAST_MEETING = {
-    "meeting_id": "2",
+    "meeting_id": 2,
     "workspace_id": 2,
     "title": "2026-04-23 백엔드 아키텍처 사전 논의",
     "summary": (

@@ -21,6 +21,20 @@ async def save_chat_log(workspace_id: int, session_id: str, role: str, content: 
         "timestamp": datetime.now()
     })
 
+async def get_past_meetings(workspace_id: int) -> list[dict]:
+    """
+    워크스페이스 이전 회의 목록 반환.
+    workspace_id 없는 문서도 포함 - 기존 seed 데이터 하위 호환용.
+    """
+    cursor = mongo_db["meeting_contexts"].find(
+        {"$or": [
+            {"workspace_id": workspace_id},
+            {"workspace_id": {"$exists": False}}, # 구버전 데이터 호환
+        ]},
+        {"_id": 0, "meeting_id": 1, "title": 1, "created_at": 1}
+    ).sort("created_at", -1)
+    return await cursor.to_list(length=None)
+
 async def get_chat_history(workspace_id: int, session_id: str) -> list[dict]:
     cursor = mongo_db["chatbot_logs"].find(
         {"workspace_id": workspace_id, "session_id": session_id},

@@ -1,5 +1,6 @@
 import json
 import re
+from typing import Optional
 from langchain.tools import tool
 from langchain_community.tools.tavily_search import TavilySearchResults
 from langchain_openai import ChatOpenAI
@@ -42,16 +43,31 @@ llm = ChatOpenAI(
 # @tool 데코레이터가 함수 시그니처와 docstring을 LLM용 tool_schema로 변환함.
 
 @tool
-async def search_past_meetings(query: str) -> list:
-    """이전 회의 내용에서 관련 정보를 검색한다."""
+async def search_past_meetings(query: str, meeting_ids: Optional[list[str]] = None) -> list:
+    """
+    이전 회의 내용에서 관련 정보를 검색한다.
+    meeting_ids: 검색 대상 회의 ID 목록. None 또는 빈 배열이면 전체 회의 검색.
+    """
     try:
-        # $meta 연산자를 사용하여 텍스트 검색 결과를 점수 순으로 정렬
+        # meeting_ids가 있으면 해당 회의만 검색
+        base_filter = {}
+        if meeting_ids:
+            base_filter["meeting_id"] = {"$in": meeting_ids}
+
+        # $text 검색 시도 $meta 연산자를 사용하여 텍스트 검색 결과를 점수 순으로 정렬
         cursor = mongo_db["meeting_contexts"].find(
-            {"$text": {"$search": query}},
+            {**base_filter, "$text": {"$search": query}},
             {"score": {"$meta": "textScore"}}, # 점수를 'score' 필드에 저장
         ).sort([("score", {"$meta": "textScore"})]).limit(5) # 점수 순으로 정렬
-
         docs = await cursor.to_list(length=5)
+
+        # $text 매칭 없으면 base_filter 범위 내에서 최신순 fallback
+        if not docs:
+            cursor = mongo_db["meeting_contexts"].find(
+                base_filter, {"_id": 0}
+            ).sort("created_at", -1).limit(5)
+            docs = await cursor.to_list(length=5)
+
         return [
             {
                 "source": "past_meetings",
@@ -206,6 +222,18 @@ async def knowledge_node(state: SharedState) -> dict:
     is_live = await is_meeting_live(meeting_id) if meeting_id else False
     meeting_context = await get_meeting_context(meeting_id) if meeting_id else ""
     workspace_id = state.get("workspace_id", "")
+    past_meeting_ids = state.get("past_meeting_ids")
+
+    if past_meeting_ids:
+        ids_str = ", ".join(f'"{i}"' for i in past_meeting_ids)
+        meeting_filter_hint = (
+            f"\n선택된 이전 회의 ID: [{ids_str}]."
+            f"search_past_meetings 호출 시 meeting_ids 인자로 반드시 전달하세요."
+        )
+    else:
+        meeting_filter_hint = (
+            "\nsearch_past_meetings 호출 시 meeting_ids는 null로 전달하세요. (전체 검색)"
+        )
 
     system_prompt = f"""
     당신은 회의 AI 어시스턴트입니다.
@@ -239,6 +267,8 @@ async def knowledge_node(state: SharedState) -> dict:
     - medium: 발화에 간접적으로 언급됨
     - Low: 발화에 근거 없거나 추측
     citations: 도구 사용 결과나 외부 정보면 []. 회의 내용 기반이면 반드시 원문 발췌.
+
+    {meeting_filter_hint}
     """
 
     result = await react_agent.ainvoke({
@@ -322,6 +352,7 @@ async def summary_node(state: SharedState) -> dict:
     """
     meeting_id = state.get("meeting_id")
     is_live = await is_meeting_live(meeting_id) if meeting_id else False
+    past_meeting_ids = state.get("past_meeting_ids")
 
     # 1단계: 컨텍스트 로드
     # partial_summary가 있으면 이미 요약된 앞부분은 재처리하지 않고 재사용.
@@ -339,8 +370,11 @@ async def summary_node(state: SharedState) -> dict:
             context = await get_meeting_context(meeting_id)
 
     # 2단계: 이전 회의 데이터 조회
-    # 발화 앞부분 200자를 쿼리로 사용해 관련 이전 회의를 검색
-    past_meetings = await search_past_meetings.ainvoke({"query": context[:200]})
+    # past_meeting_ids 있으면 선택된 회의만, 없으면 전체 검색
+    past_meetings = await search_past_meetings.ainvoke({
+        "query": context[:200],
+        "meeting_ids": past_meeting_ids if past_meeting_ids else None,
+    })
     past_context = "\n".join(
         m.get("snippet", "") for m in past_meetings if m.get("snippet")
     )

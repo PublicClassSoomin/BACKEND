@@ -26,6 +26,8 @@ from app.domains.knowledge.schemas import (
     ChatbotSummaryRequest,
     ChatbotSummaryResponse,
     DocumentUploadResponse,
+    PastMeetingsResponse,
+    PastMeetingItem,
 )
 from app.domains.meeting.schemas import MeetingSearchParams, MeetingSearchResponse
 from app.domains.meeting.service import MeetingSearchService
@@ -81,6 +83,7 @@ async def chatbot_message(workspace_id: int, req: ChatbotMessageRequest, session
         "meeting_id": meeting_id,
         "workspace_id": workspace_id,
         "user_question": req.message,
+        "past_meeting_ids": req.past_meeting_ids,
         "function_type": "",
         "chat_response": ""
     }
@@ -119,6 +122,7 @@ async def chatbot_summary(workspace_id: int, req: ChatbotSummaryRequest):
     state = {
         "meeting_id": req.meeting_id,
         "workspace_id": workspace_id,
+        "past_meeting_ids": req.past_meeting_ids,
         "user_question": "",
         "function_type": "",
         "chat_response": ""
@@ -129,6 +133,14 @@ async def chatbot_summary(workspace_id: int, req: ChatbotSummaryRequest):
     return ChatbotSummaryResponse(
         summary=result["summary"],
         generated_at=datetime.now()
+    )
+
+@router.get("/workspaces/{workspace_id}/past_meetings", response_model=PastMeetingsResponse)
+async def get_past_meetings(workspace_id: int):
+    meetings = await repository.get_past_meetings(workspace_id)
+    return PastMeetingsResponse(
+        meetings=[PastMeetingItem(**m) for m in meetings],
+        total=len(meetings),
     )
 
 @router.post("/workspaces/{workspace_id}/documents", response_model=DocumentUploadResponse)
