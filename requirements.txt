@@ -36,7 +36,8 @@ redis==7.4.0
 # Utils & Formatting
 python-dotenv==1.2.2
 httpx==0.28.1
-pytest==9.0.2
+pytest==8.3.5
+pytest-asyncio==0.24.0
 pdf2image==1.17.0
 python-pptx==1.0.2
 pypdf==6.10.2
