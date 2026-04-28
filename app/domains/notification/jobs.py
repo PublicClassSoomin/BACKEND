@@ -144,14 +144,15 @@ def _emit_action_assigned_recent(db: Session) -> None:
 
 def _emit_integration_token_expiring(db: Session) -> None:
     now = datetime.utcnow()
-    warn_before = now + timedelta(days=1)
 
     integrations = (
         db.query(Integration)
         .filter(
             Integration.is_connected.is_(True),
+            Integration.service == ServiceType.google_calendar,
             Integration.token_expires_at.isnot(None),
-            Integration.token_expires_at <= warn_before,
+            # "만료 예정"이 아니라 "진짜 만료됨"일 때만 경고
+            Integration.token_expires_at <= now,
         )
         .all()
     )
@@ -194,7 +195,8 @@ def _emit_integration_token_expiring(db: Session) -> None:
                 title="연동 토큰 만료 경고",
                 body=f"{service_name} 연동이 만료되었습니다. 설정에서 토큰을 갱신해 주세요.{f' (만료: {exp_str})' if exp_str else ''}",
                 link="/settings/integrations",
-                dedupe_key=f"integration_expired:{service_name}:{exp_str}",
+                # Google Calendar 만료 경고는 1회만 생성 (중복/스팸 방지)
+                dedupe_key="integration_expired:google_calendar",
             )
 
 
