@@ -22,3 +22,7 @@ class NotificationsListResponse(BaseModel):
 class MarkReadRequest(BaseModel):
     ids: list[int] = Field(default_factory=list)
 
+
+class DeleteReadResponse(BaseModel):
+    deleted_count: int = 0
+
