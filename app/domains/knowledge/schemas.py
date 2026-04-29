@@ -24,7 +24,7 @@ class ChatbotHistoryMessage(BaseModel):
 class ChatbotHistoryResponse(BaseModel):
     messages: list[ChatbotHistoryMessage]
 
-class ChatbotSummaryRequest(BaseModel):
+class ChatbotReportRequest(BaseModel):
     meeting_id: Optional[int] = None
     past_meeting_ids: Optional[list[int]] = None
 
@@ -113,7 +113,7 @@ class DocumentUploadResponse(BaseModel):
     title: str
     uploaded_at: datetime
 
-class ChatbotSummaryResponse(BaseModel):
+class ChatbotReportResponse(BaseModel):
     summary: SummaryResponse
     generated_at: datetime
 

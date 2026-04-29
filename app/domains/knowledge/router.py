@@ -23,8 +23,8 @@ from app.domains.knowledge.schemas import (
     ChatbotHistoryResponse,
     ChatbotMessageRequest,
     ChatbotMessageResponse,
-    ChatbotSummaryRequest,
-    ChatbotSummaryResponse,
+    ChatbotReportRequest,
+    ChatbotReportResponse,
     DocumentUploadResponse,
     PastMeetingsResponse,
     PastMeetingItem,
@@ -34,7 +34,7 @@ from app.domains.meeting.service import MeetingSearchService
 from app.domains.knowledge import repository
 from app.utils.redis_utils import get_meeting_context
 from app.utils.time_utils import now_kst
-from app.domains.knowledge.agent_utils import summary_node
+from app.domains.knowledge.agent_utils import quick_report_node
 from app.domains.knowledge.service import ingest_document, analyze_document_for_display
 
 router = APIRouter()
@@ -124,8 +124,8 @@ async def chatbot_history(workspace_id: int, session_id: str):
         ]
     )
 
-@router.post("/workspace/{workspace_id}/chatbot/summary", response_model=ChatbotSummaryResponse)
-async def chatbot_summary(workspace_id: int, req: ChatbotSummaryRequest):
+@router.post("/workspace/{workspace_id}/chatbot/quick_report")
+async def chatbot_report(workspace_id: int, req: ChatbotReportRequest, background_tasks: BackgroundTasks,):
     state = {
         "meeting_id": req.meeting_id,
         "workspace_id": workspace_id,
@@ -134,13 +134,17 @@ async def chatbot_summary(workspace_id: int, req: ChatbotSummaryRequest):
         "function_type": "",
         "chat_response": ""
     }
-    result = await summary_node(state)
-    await repository.save_meeting_summary(workspace_id, req.meeting_id, result["summary"])
+    # 백그라운드로 실행 — 회의 종료 시 fire-and-forget 호출용
+    # quick_report_node 내부에서 meeting_summaries에 저장까지 처리
+    background_tasks.add_task(_run_quick_report, workspace_id, state)
+    return {"status": "accepted"}
 
-    return ChatbotSummaryResponse(
-        summary=result["summary"],
-        generated_at=now_kst()
-    )
+async def _run_quick_report(workspace_id: int, state: dict):
+    """백그라운드 quick_report 생성 헬퍼."""
+    try:
+        await quick_report_node(state)
+    except Exception:
+        pass  # 백그라운드 실패는 조용히 무시
 
 @router.get("/workspace/{workspace_id}/past_meetings", response_model=PastMeetingsResponse)
 async def get_past_meetings(workspace_id: int):
