@@ -1,9 +1,12 @@
 # app/domains/intelligence/router.py
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
 
+from app.db.session import get_db
 from app.domains.intelligence.schemas import (
     ContentUpdateRequest,
     ContentUpdateResponse,
+    MeetingStatusResponse,
     SpeakerReassignRequest,
     SpeakerReassignResponse,
     UtterancesResponse,
@@ -11,10 +14,33 @@ from app.domains.intelligence.schemas import (
 from app.domains.intelligence.service import (
     edit_utterance_content,
     fetch_meeting_utterances,
+    get_meeting_status,
     update_speaker,
 )
 
 router = APIRouter()
+
+
+@router.get(
+    "/meetings/{meeting_id}/status",
+    response_model=MeetingStatusResponse,
+    summary="회의 상태 조회",
+)
+def get_meeting_status_endpoint(
+    meeting_id: int,
+    db: Session = Depends(get_db),
+):
+    """
+    MySQL meetings 테이블에서 해당 회의의 status를 조회합니다.
+    WebSocket 연결 전 'done' 여부를 확인하는 데 사용합니다.
+    """
+    data = get_meeting_status(db, meeting_id)
+    if data is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="회의를 찾을 수 없습니다.",
+        )
+    return MeetingStatusResponse(data=data)
 
 
 @router.get(

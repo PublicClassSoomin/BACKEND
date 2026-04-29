@@ -58,4 +58,16 @@ class ContentUpdateData(BaseModel):
 class ContentUpdateResponse(BaseModel):
     success: bool = True
     data: ContentUpdateData
+
+
+class MeetingStatusData(BaseModel):
+    meeting_id: int
+    status: str
+    is_done: bool
+
+
+class MeetingStatusResponse(BaseModel):
+    success: bool = True
+    data: MeetingStatusData
+    message: str = "OK"
     message: str = "OK"

@@ -1,6 +1,9 @@
 # app/domains/intelligence/service.py
+from sqlalchemy.orm import Session
+
 from app.domains.intelligence.repository import get_utterances_by_meeting_id, reassign_speaker, update_utterance_content
-from app.domains.intelligence.schemas import UtterancesData, UtteranceOut, SpeakerReassignData, ContentUpdateData
+from app.domains.intelligence.schemas import UtterancesData, UtteranceOut, SpeakerReassignData, ContentUpdateData, MeetingStatusData
+from app.domains.meeting.models import Meeting, MeetingStatus
 
 
 async def fetch_meeting_utterances(meeting_id: str) -> UtterancesData | None:
@@ -58,3 +61,15 @@ async def edit_utterance_content(
 ) -> ContentUpdateData:
     updated = await update_utterance_content(meeting_id, seq, content)
     return ContentUpdateData(updated=updated)
+
+
+def get_meeting_status(db: Session, meeting_id: int) -> MeetingStatusData | None:
+    """MySQL에서 meeting_id에 해당하는 회의 status를 조회해 반환."""
+    meeting = db.query(Meeting).filter(Meeting.id == meeting_id).first()
+    if meeting is None:
+        return None
+    return MeetingStatusData(
+        meeting_id=meeting.id,
+        status=meeting.status.value,
+        is_done=meeting.status == MeetingStatus.done,
+    )
