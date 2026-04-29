@@ -1,7 +1,7 @@
 # app\api\v1\api_router.py
 from fastapi import APIRouter
 
-from app.domains.action.router import router as action_router
+from app.domains.action.router import router as action_router, standalone_router as action_standalone_router
 from app.domains.intelligence.router import router as intelligence_router
 from app.domains.integration.router import router as integration_router
 from app.domains.knowledge.router import router as knowledge_router
@@ -27,6 +27,7 @@ api_router.include_router(knowledge_router, prefix="/knowledges", tags=["Knowled
 
 # 5. 액션 도메인 (생성된 WBS 조회, 외부 툴 연동 상태 확인)
 api_router.include_router(action_router, prefix="/actions", tags=["Actions"])
+api_router.include_router(action_standalone_router, prefix="/actions", tags=["Actions"])
 
 # 6. 비전 도메인 (스크린샷 분석 결과 조회)
 api_router.include_router(vision_router, prefix="/visions", tags=["Vision"])

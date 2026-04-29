@@ -61,7 +61,7 @@ LATEST_TEXT = "데이터베이스 인덱스 최적화 방안에 대해서도 다
 PAST_MEETINGS = [
     {
         "meeting_id": 2,
-        "workspace_id": 2,
+        "workspace_id": 1,
         "title": "2026-04-10 스프린트 계획 회의",
         "summary": (
             "4월 스프린트 목표 설정 및 태스크 배분 논의. "
@@ -74,7 +74,7 @@ PAST_MEETINGS = [
     },
     {
         "meeting_id": 3,
-        "workspace_id": 2,
+        "workspace_id": 1,
         "title": "2026-04-17 백엔드 아키텍처 사전 논의",
         "summary": (
             "FastAPI 도메인 구조 개편 필요성에 대해 논의함. "
@@ -95,7 +95,7 @@ PAST_MEETINGS = [
 PAST_UTTERANCES = [
     {
         "meeting_id": 2,
-        "workspace_id": 2,
+        "workspace_id": 1,
         "created_at": datetime(2026, 4, 10, 10, 0, 0),
         "updated_at": datetime(2026, 4, 10, 11, 0, 0),
         "total_duration_sec": 660,
@@ -111,7 +111,7 @@ PAST_UTTERANCES = [
     },
     {
         "meeting_id": 3,
-        "workspace_id": 2,
+        "workspace_id": 1,
         "created_at": datetime(2026, 4, 17, 10, 0, 0),
         "updated_at": datetime(2026, 4, 17, 11, 0, 0),
         "total_duration_sec": 780,
@@ -221,8 +221,8 @@ def seed_mongo(workspace_id: int, flush: bool):
     ctx_col = mongo_db["meeting_contexts"]
 
     if flush:
-        ctx_col.delete_many({})
-        print("  [MongoDB] meeting_contexts 전체 삭제")
+        ctx_col.delete_many({"workspace_id": workspace_id})
+        print(f"  [MongoDB] meeting_contexts 삭제: workspace_id={workspace_id}")
 
     existing_indexes = [idx["name"] for idx in ctx_col.list_indexes()]
     if "summary_text" not in existing_indexes:
@@ -230,9 +230,10 @@ def seed_mongo(workspace_id: int, flush: bool):
         print("  [MongoDB] $text 인덱스 생성: summary + title")
 
     for pm in PAST_MEETINGS:
+        payload = {**pm, "workspace_id": workspace_id}
         ctx_col.update_one(
-            {"meeting_id": pm["meeting_id"]},
-            {"$setOnInsert": {**pm, "workspace_id": workspace_id}},
+            {"meeting_id": pm["meeting_id"], "workspace_id": workspace_id},
+            {"$set": payload},
             upsert=True,
         )
         print(f"  [MongoDB] 이전 회의 요약 삽입: {pm['title']}")
@@ -242,8 +243,8 @@ def seed_mongo(workspace_id: int, flush: bool):
 
     if flush:
         ids = [u["meeting_id"] for u in PAST_UTTERANCES]
-        utt_col.delete_many({"meeting_id": {"$in": ids}})
-        print(f"  [MongoDB] utterances 기존 데이터 삭제: meeting_id={ids}")
+        utt_col.delete_many({"meeting_id": {"$in": ids}, "workspace_id": workspace_id})
+        print(f"  [MongoDB] utterances 기존 데이터 삭제: workspace_id={workspace_id}, meeting_id={ids}")
 
     # utterances.text 필드 $text 검색 인덱스
     utt_indexes = [idx["name"] for idx in utt_col.list_indexes()]
@@ -255,9 +256,10 @@ def seed_mongo(workspace_id: int, flush: bool):
         print("  [MongoDB] utterances $text 인덱스 생성")
 
     for doc in PAST_UTTERANCES:
+        payload = {**doc, "workspace_id": workspace_id}
         utt_col.update_one(
-            {"meeting_id": doc["meeting_id"]},
-            {"$setOnInsert": doc},
+            {"meeting_id": doc["meeting_id"], "workspace_id": workspace_id},
+            {"$set": payload},
             upsert=True,
         )
         print(f"  [MongoDB] raw 발화 삽입: meeting_id={doc['meeting_id']} ({len(doc['utterances'])}건)")
@@ -266,7 +268,7 @@ def seed_mongo(workspace_id: int, flush: bool):
 def main():
     parser = argparse.ArgumentParser(description="더미 데이터 삽입")
     parser.add_argument("--meeting-id", default=DEFAULT_MEETING_ID, help="현재 회의 meeting_id")
-    parser.add_argument("--workspace-id", type=int, default=2, help="테스트용 workspace_id")
+    parser.add_argument("--workspace-id", type=int, default=1, help="테스트용 workspace_id")
     parser.add_argument("--flush", action="store_true", help="기존 데이터 삭제 후 재삽입")
     args = parser.parse_args()
 

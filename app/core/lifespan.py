@@ -92,5 +92,5 @@ async def lifespan(app: FastAPI):
 
     if jobs_task is not None:
         jobs_task.cancel()
-        with contextlib.suppress(Exception):
+        with contextlib.suppress(BaseException):
             await jobs_task

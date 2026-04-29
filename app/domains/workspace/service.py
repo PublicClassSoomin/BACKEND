@@ -91,6 +91,25 @@ def _generate_unique_invite_code(db: Session) -> str:
             return code
 
 
+def _ensure_workspace_invite_code(db: Session, workspace: Workspace) -> Workspace:
+    """
+    legacy 데이터로 invite_code가 비어 있는 워크스페이스를 안전하게 보정합니다.
+
+    응답 스키마(WorkspaceResponse)는 invite_code를 문자열로 요구하므로,
+    NULL이 들어있으면 조회 시점에 코드를 생성해 즉시 저장합니다.
+    """
+    if workspace.invite_code:
+        return workspace
+
+    new_invite_code = _generate_unique_invite_code(db)
+    updated_workspace = update_workspace_invite_code(
+        db=db,
+        workspace_id=workspace.id,
+        invite_code=new_invite_code,
+    )
+    return updated_workspace or workspace
+
+
 def get_workspace_service(db: Session, workspace_id: int) -> WorkspaceResponse:
     """
     워크스페이스 상세 조회를 처리하는 비즈니스 로직입니다.
@@ -116,6 +135,7 @@ def get_workspace_service(db: Session, workspace_id: int) -> WorkspaceResponse:
             status_code=status.HTTP_404_NOT_FOUND,
             detail="워크스페이스를 찾을 수 없습니다.",
         )
+    workspace = _ensure_workspace_invite_code(db, workspace)
 
     return WorkspaceResponse(
         workspace_id=workspace.id,
@@ -158,6 +178,7 @@ def update_workspace_service(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="워크스페이스를 찾을 수 없습니다.",
         )
+    updated_workspace = _ensure_workspace_invite_code(db, updated_workspace)
 
     return WorkspaceResponse(
         workspace_id=updated_workspace.id,
