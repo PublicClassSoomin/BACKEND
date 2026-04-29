@@ -76,6 +76,20 @@ def mark_all_read(db: Session, workspace_id: int, user_id: int) -> None:
     db.commit()
 
 
+def delete_read(db: Session, workspace_id: int, user_id: int) -> int:
+    """
+    읽은(read_at != NULL) 알림을 사용자 단위로 일괄 삭제합니다.
+    """
+    q = db.query(Notification).filter(
+        Notification.workspace_id == workspace_id,
+        Notification.user_id == user_id,
+        Notification.read_at.isnot(None),
+    )
+    deleted = q.delete(synchronize_session=False)
+    db.commit()
+    return int(deleted or 0)
+
+
 def create_notification(
     db: Session,
     workspace_id: int,
