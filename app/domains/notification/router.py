@@ -5,7 +5,7 @@ from app.core.deps import get_current_user_id
 from app.db.session import get_db
 from app.domains.user.dependencies import require_workspace_member
 from app.domains.notification import service
-from app.domains.notification.schemas import NotificationsListResponse, MarkReadRequest
+from app.domains.notification.schemas import NotificationsListResponse, MarkReadRequest, DeleteReadResponse
 
 
 router = APIRouter()
@@ -44,4 +44,15 @@ def mark_all_notifications_read(
 ) -> dict:
     service.mark_all_read(db, workspace_id, current_user_id)
     return {"status": "ok"}
+
+
+@router.delete("/workspaces/{workspace_id}/read")
+def delete_read_notifications(
+    workspace_id: int,
+    db: Session = Depends(get_db),
+    _member=Depends(require_workspace_member),
+    current_user_id: int = Depends(get_current_user_id),
+) -> DeleteReadResponse:
+    deleted = service.delete_read(db, workspace_id, current_user_id)
+    return DeleteReadResponse(deleted_count=deleted)
 

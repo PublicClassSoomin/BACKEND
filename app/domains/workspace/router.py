@@ -50,7 +50,7 @@ from app.domains.workspace.service import (
     validate_invite_code_service,
     list_my_workspaces_service,
 )
-from app.domains.workspace.deps import require_workspace_admin
+from app.domains.workspace.deps import require_workspace_admin, require_workspace_member
 
 
 router = APIRouter()
@@ -209,10 +209,13 @@ async def get_workspace_members(
     workspace_id: int,
     department_id: int | None = None,
     db: Session = Depends(get_db),
-    _admin = Depends(require_workspace_admin),
+    _member: int = Depends(require_workspace_member),
 ) -> WorkspaceMemberListResponse:
     """
     특정 워크스페이스의 멤버 목록을 조회하는 API 엔드포인트입니다.
+
+    홈·협업 UI 등에서 멤버를 표시할 수 있도록, 워크스페이스 소속 멤버라면
+    누구나 조회할 수 있습니다. 역할/부서 변경은 별도 관리자 전용 API를 사용합니다.
 
     Args:
         workspace_id: 조회할 워크스페이스 ID입니다.
