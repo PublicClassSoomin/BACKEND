@@ -31,7 +31,7 @@ class JiraClient(BaseClient):
 
         while not is_last:
             # startAt 으로 다음페이지를 요청.
-            params = f"startAt={start_at}&maxResults={max_results}&typeKey=software&orderBy=name"
+            params = f"startAt={start_at}&maxResults={max_results}&orderBy=name"
             if query:
                 params += f"&query={query}"
             data = await self._request(

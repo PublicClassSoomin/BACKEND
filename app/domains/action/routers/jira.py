@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, BackgroundTasks, Query, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
-from app.infra.database.session import get_db
+from app.infra.database.session import get_db, SessionLocal
 from app.domains.action.schemas import (
     ExportResponse, JiraSyncResponse, JiraSyncItem,
     JiraPreviewResponse, JiraPreviewEpic, JiraPreviewTask,
@@ -135,15 +135,24 @@ async def jira_export_stream(
     queue: asyncio.Queue = asyncio.Queue()
 
     async def run():
-        await export_jira(
-            db=db,
-            workspace_id=workspace_id,
-            meeting_id=meeting_id,
-            epic_ids=body.epic_ids,
-            task_ids=body.task_ids,
-            progress_queue=queue,
-        )
-        await queue.put(None) # 종료 신호.
+        # 백그라운드 작업은 새로운 DB 세션으로 연다.
+        # get_db의 세션은 응답을 보낸 순간 세션을 닫는다.
+        # background_tasks는 200을 첨부터 보내니 바로 닫혀서 게이지가 안 올라가는 상황이 발생한다.
+        db_bg = SessionLocal()
+        try:
+            result = await export_jira(
+                db=db_bg,
+                workspace_id=workspace_id,
+                meeting_id=meeting_id,
+                epic_ids=body.epic_ids,
+                task_ids=body.task_ids,
+                progress_queue=queue,
+            )
+            await queue.put({"done": True, **result})
+        except Exception as e:
+            await queue.put({"done": True, "created": 0, "updated": 0, "failed": [str(e)]})
+        finally:
+            db_bg.close()
     
     async def event_generator():
         # 백그라운드에서 JIRA 동기화 작업
@@ -152,10 +161,9 @@ async def jira_export_stream(
         while True:
             # item이 들어올때까지(이벤트 생길때까지) 대기
             item = await queue.get()
-            if item is None:
+            if isinstance(item, dict) and item.get("done"):
                 # SSE Server-Sent Events 국제 표준 규칙
-                yield "data: {\"done\": true}\n\n"
-                break
+                yield f"data: {json.dumps(item, ensure_ascii=False)}\n\n"
             yield f"data: {json.dumps(item, ensure_ascii=False)}\n\n"
     
     # 이번 Response는 한 번에 끝낼 게 아니다!

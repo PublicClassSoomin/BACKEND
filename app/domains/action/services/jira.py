@@ -67,6 +67,17 @@ async def export_jira(
         except Exception as e:
             logger.error(f"Epic 처리 실패 epic_id={epic.id}: {e}")
             failed.append(f"Epic: {epic.title}")
+            # 스킵된 태스크 수만큼 done 보상 -> 진행률 보장
+            skipped = repository.get_wbs_tasks_by_epic(db, epic.id)
+            if task_ids is not None:
+                skipped = [t for t in skipped if t.id in task_ids]
+            done += len(skipped)
+            if progress_queue and total_tasks > 0:
+                await progress_queue.put({
+                    "done": done,
+                    "total": total_tasks,
+                    "current": f"[건너뜀] {epic.title}",
+                })
             continue
 
         # epic에 속한 task 다 불러옴
@@ -172,7 +183,7 @@ async def sync_from_jira(
     jql = f"issueKey in ({', '.join(keys)})"
     
     # 1번의 API 호출로 모든 정보를 가져옴
-    issues = await client.search_by_jql(jql, fields="status,summary")
+    issues = await client.search_by_jql(jql, fields="status,summary,assignee")
 
     # key -> issue 딕셔너리
     issue_map = {issue['key']: issue for issue in issues}
