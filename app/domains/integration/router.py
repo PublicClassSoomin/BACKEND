@@ -14,7 +14,6 @@ from app.domains.integration.schemas import (
     IntegrationResponse,
     OAuthUrlResponse,
     SlackChannelSelectRequest,
-    SlackChannelItem,
     SlackChannelListResponse,
     TestIntegrationResponse,
     GoogleCalendarEventsResponse,
@@ -24,6 +23,11 @@ from app.domains.integration.schemas import (
     GoogleCalendarCreateRequest,
     GoogleCalendarCreateResponse,
     GoogleCalendarSelectRequest,
+    JiraStatusListResponse,
+    JiraProjectListResponse,
+    JiraSiteListResponse,
+    JiraSiteSelectRequest,
+    JiraSiteItem
 )
 from app.domains.user.dependencies import require_workspace_admin, require_workspace_member
 
@@ -40,6 +44,7 @@ def _to_response(item: Integration) -> IntegrationResponse:
         selected_channel_id=item.extra_config.get("channel_id") if item.extra_config else None,
         selected_calendar_id=item.extra_config.get("calendar_id") if item.extra_config else None,
         selected_calendar_name=item.extra_config.get("calendar_name") if item.extra_config else None,
+        selected_project_key=item.extra_config.get("project_key") if item.extra_config else None,
         updated_at=item.updated_at,
     )
 
@@ -164,26 +169,31 @@ async def jira_auth(
 @router.get("/jira/callback")
 async def jira_callback(code: str, state: str, db: Session = Depends(get_db)) :
     try:
-        await service.handle_jira_callback(db, code, state)
-        return RedirectResponse(f"{FRONTEND_INTEGRATIONS}?service=jira&status=connected")
+        result = await service.handle_jira_callback(db, code, state)
+        if result['status'] == "connected":
+            return RedirectResponse(f"{FRONTEND_INTEGRATIONS}?service=jira&status=connected")
+        
+        else:
+            wid = result['workspace_id']
+            return RedirectResponse(f"{FRONTEND_INTEGRATIONS}?service=jira&status=select_site&workspace_id={wid}")
     except Exception:
         return RedirectResponse(f"{FRONTEND_INTEGRATIONS}?service=jira&status=error")
 
-@router.get("/workspaces/{workspace_id}/jira/projects")
+@router.get("/workspaces/{workspace_id}/jira/projects", response_model=JiraProjectListResponse)
 async def list_jira_projects(
     workspace_id: int,
+    query: str = Query(default="", description="프로젝트 이름 검색"),
     db: Session = Depends(get_db),
     _admin = Depends(require_workspace_admin),
 ):
     try:
-        projects = await service.get_jira_projects(db, workspace_id)
-        return {
-            "projects": projects
-        }
+        projects = await service.get_jira_projects(db, workspace_id, query)
+        return JiraProjectListResponse(projects=projects)
+    
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
-@router.post("/workspaces/{workspace_id}/jira/project/select")
+@router.post("/workspaces/{workspace_id}/jira/project/select", response_model=ExportResponse)
 async def select_jira_project(
     workspace_id: int,
     body: dict = Body(...),
@@ -192,11 +202,11 @@ async def select_jira_project(
 ):
     try:
         service.save_jira_project(db, workspace_id, body['project_key'])
-        return {"status": "ok"}
+        return ExportResponse(status="ok")
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
-@router.get("/workspaces/{workspace_id}/jira/statuses")
+@router.get("/workspaces/{workspace_id}/jira/statuses", response_model=JiraStatusListResponse)
 async def list_jira_statuses(
     workspace_id: int,
     db: Session = Depends(get_db),
@@ -204,11 +214,12 @@ async def list_jira_statuses(
 ):
     try:
         statuses = await service.get_jira_project_statuses(db, workspace_id)
-        return {"statuses": statuses}
+        return JiraStatusListResponse(statuses=statuses)
+    
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     
-@router.post("/workspaces/{workspace_id}/jira/mapping")
+@router.post("/workspaces/{workspace_id}/jira/mapping", response_model=ExportResponse)
 async def save_jira_mapping(
     workspace_id: int,
     body: dict = Body(...),
@@ -217,10 +228,48 @@ async def save_jira_mapping(
 ): 
     try:
         service.save_jira_status_mapping(db, workspace_id, body['status_mapping'])
-        return {"status": "ok"}
+        return ExportResponse(status="ok")
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
-    
+
+@router.post("/workspaces/{workspace_id}/jira/reset-links")
+async def reset_jira_links(
+    workspace_id: int,
+    db: Session = Depends(get_db),
+    _admin=Depends(require_workspace_admin),
+):
+    try:
+        service.reset_jira_links(db, workspace_id)
+        return {"status": "ok"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+@router.get("/workspaces/{workspace_id}/jira/sites", response_model=JiraSiteListResponse)
+async def list_jira_pending_sites(
+    workspace_id: int,
+    db: Session = Depends(get_db),
+    _admin = Depends(require_workspace_admin),
+):
+    try:
+        sites = service.get_jira_pending_sites(db, workspace_id)
+        return JiraSiteListResponse(sites=[JiraSiteItem(**s) for s in sites])
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+@router.post("/workspaces/{workspace_id}/jira/site/select", response_model=ExportResponse)
+async def select_jira_site(
+    workspace_id: int,
+    body: JiraSiteSelectRequest,
+    db: Session = Depends(get_db),
+    _admin = Depends(require_workspace_admin),
+):
+    try:
+        service.save_jira_site(db, workspace_id, body.cloud_id, body.site_url)
+        return ExportResponse(status="ok")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
 @router.get("/workspaces/{workspace_id}/slack/channels", response_model=SlackChannelListResponse)
 async def list_slack_channels(
     workspace_id: int,

@@ -22,6 +22,12 @@ def get_action_items(db: Session, meeting_id: int) -> List[ActionItem]:
 def get_user(db: Session, user_id: int) -> Optional[User]:
     return db.query(User).filter(User.id == user_id).first()
 
+def get_users_by_ids(db: Session, user_ids: list[int]) -> dict[int, User]:
+    if not user_ids:
+        return {}
+    users = db.query(User).filter(User.id.in_(user_ids)).all()
+    return {u.id: u for u in users}
+
 # -----------보고서-------------------------------------------------------
 def save_report(
         db: Session,
@@ -96,15 +102,22 @@ def save_wbs_task(
         assignee_id: Optional[int] = None,
         assignee_name: Optional[str] = None,
         priority: str = Priority.medium,
+        urgency: Optional[str] = None,
         due_date: Optional[date] = None,
+        order_index: Optional[int] = None,
 ) -> WbsTask:
+    if order_index is None:
+        order_index = db.query(WbsTask).filter(WbsTask.epic_id == epic_id).count()
+
     task = WbsTask(
         epic_id=epic_id,
         title=title,
         assignee_id=assignee_id,
         assignee_name=assignee_name,
         priority=priority if priority else Priority.medium,
-        due_date=due_date
+        urgency=urgency,
+        due_date=due_date,
+        order_index=order_index,
     )
     db.add(task)
     db.commit()
@@ -158,9 +171,11 @@ def update_wbs_task(
         assignee_id: Optional[int] = None,
         assignee_name: Optional[str] = None,
         priority: Optional[str] = None,
+        urgency: Optional[str] = None,
         due_date: Optional[date] = None,
         progress: Optional[int] = None,
         status: Optional[str] = None,
+        order_index: Optional[int] = None,
 ) -> Optional[WbsTask]:
     task = get_wbs_task(db, task_id)
     if not task:
@@ -173,12 +188,16 @@ def update_wbs_task(
         task.assignee_name = assignee_name
     if priority is not None:
         task.priority = priority
+    if urgency is not None:
+        task.urgency = urgency
     if due_date is not None:
         task.due_date = due_date
     if progress is not None:
         task.progress = max(0, min(100, progress))
     if status is not None:
         task.status = status
+    if order_index is not None:
+        task.order_index = order_index
     db.commit()
     db.refresh(task)
     return task
@@ -199,3 +218,28 @@ def delete_wbs_task(db: Session, task_id: int) -> bool:
     db.delete(task)
     db.commit()
     return True
+
+def move_wbs_task(
+        db: Session,
+        task_id: int,
+        target_epic_id: int,
+        order_index: int,
+) -> Optional[WbsTask]:
+    task = get_wbs_task(db, task_id)
+    if not task:
+        return None
+    task.epic_id = target_epic_id
+    task.order_index = order_index
+    db.commit()
+    db.refresh(task)
+    return task
+
+def reorder_wbs_epics(db: Session, items: list) -> None:
+    for item in items:
+        db.query(WbsEpic).filter(WbsEpic.id == item['id']).update({"order_index": item['order_index']})
+    db.commit()
+
+def reorder_wbs_tasks(db: Session, items: list) -> None:
+    for item in items:
+        db.query(WbsTask).filter(WbsTask.id == item['id']).update({"order_index": item['order_index']})
+    db.commit()
