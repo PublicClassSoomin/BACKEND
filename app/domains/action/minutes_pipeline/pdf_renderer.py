@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from app.domains.minutes.pipeline.data_mapper import MinuteFields
+    from app.domains.action.minutes_pipeline.data_mapper import MinuteFields
 
 logger = logging.getLogger(__name__)
 
@@ -34,10 +34,6 @@ _FONT_DOWNLOAD_SPECS: list[tuple[str, str, list[str]]] = [
     ),
 ]
 
-
-# ---------------------------------------------------------------------------
-# 폰트
-# ---------------------------------------------------------------------------
 
 def prefetch_fonts() -> bool:
     _FONT_STORAGE_DIR.mkdir(parents=True, exist_ok=True)
@@ -74,10 +70,6 @@ def _get_font_urls() -> tuple[str, str]:
     return reg_url, bold_url
 
 
-# ---------------------------------------------------------------------------
-# Jinja2/Playwright 렌더링
-# ---------------------------------------------------------------------------
-
 def _md_bold(text: str) -> str:
     text = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", text, flags=re.DOTALL)
     return re.sub(r"__(.+?)__", r"<b>\1</b>", text, flags=re.DOTALL)
@@ -93,7 +85,7 @@ def render(fields: "MinuteFields") -> bytes:
         from playwright.sync_api import sync_playwright
     except ImportError:
         logger.warning("playwright 또는 jinja2 미설치 — reportlab 폴백")
-        from app.domains.minutes.pipeline import fallback_renderer
+        from app.domains.action.minutes_pipeline import fallback_renderer
         return fallback_renderer.render(fields)
 
     reg_url, bold_url = _get_font_urls()
@@ -113,7 +105,7 @@ def render(fields: "MinuteFields") -> bytes:
     )
 
     template_dir = (
-        Path(__file__).parent.parent.parent / "action" / "templates"
+        Path(__file__).parent.parent / "templates"
     )
     env = Environment(loader=FileSystemLoader(str(template_dir)), autoescape=False)
     html_str = env.get_template("meeting_minutes.html").render(**ctx)
@@ -137,10 +129,6 @@ def render(fields: "MinuteFields") -> bytes:
 
     return pdf_bytes
 
-
-# ---------------------------------------------------------------------------
-# PDF 유틸리티
-# ---------------------------------------------------------------------------
 
 def preview_from_pdf_bytes(
     pdf_bytes: bytes,

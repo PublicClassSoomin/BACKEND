@@ -75,7 +75,7 @@ def _ensure_user_profile_columns() -> None:
 async def _prefetch_fonts() -> None:
     """앱 시작 시 PDF 생성에 필요한 한글 폰트를 storage/fonts/ 에 미리 다운로드합니다."""
     try:
-        from app.domains.minutes.pipeline.pdf_renderer import prefetch_fonts
+        from app.domains.action.minutes_pipeline.pdf_renderer import prefetch_fonts
         loop = asyncio.get_event_loop()
         ok = await loop.run_in_executor(None, prefetch_fonts)
         if ok:

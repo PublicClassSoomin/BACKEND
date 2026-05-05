@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from app.domains.minutes.pipeline.data_mapper import MinuteFields
+    from app.domains.action.minutes_pipeline.data_mapper import MinuteFields
 
 logger = logging.getLogger(__name__)
 

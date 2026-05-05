@@ -1,6 +1,6 @@
 """
 회의록 관련 엔드포인트.
-파이프라인 책임은 app.domains.minutes.pipeline 모듈이 가진다.
+파이프라인 책임은 app.domains.action.minutes_pipeline 모듈이 가진다.
 """
 import asyncio
 import base64
@@ -23,8 +23,8 @@ from app.domains.action.schemas import (
     MinutesResponse,
 )
 from app.domains.action.services.minutes_builder import build_and_save_minutes, ensure_minutes
-from app.domains.minutes import repository as minutes_repo
-from app.domains.minutes.pipeline import (
+from app.domains.action import minutes_repository as minutes_repo
+from app.domains.action.minutes_pipeline import (
     data_mapper,
     pdf_renderer,
 )

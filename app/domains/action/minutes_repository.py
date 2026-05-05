@@ -1,4 +1,4 @@
-# app/domains/minutes/repository.py
+# app/domains/action/minutes_repository.py
 from typing import Optional
 
 from sqlalchemy.orm import Session
@@ -6,8 +6,7 @@ from sqlalchemy.orm import Session
 from app.domains.intelligence.models import MeetingMinute, MinuteStatus
 from app.domains.meeting.models import Meeting
 from app.domains.user.models import User
-from app.domains.workspace.models import WorkspaceMember
-from app.domains.workspace.models import Department
+from app.domains.workspace.models import Department, WorkspaceMember
 from app.utils.time_utils import now_kst
 
 
