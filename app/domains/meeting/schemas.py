@@ -114,6 +114,7 @@ class MeetingHistoryItemOut(BaseModel):
     started_at: Optional[datetime] = None
     ended_at: Optional[datetime] = None
     summary: Optional[str] = None
+    participants: list[MeetingDetailParticipantOut] = Field(default_factory=list)
 
 
 class MeetingHistoryResponse(BaseModel):

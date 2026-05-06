@@ -651,6 +651,7 @@ class MeetingHistoryService:
         keyword: str | None,
         page: int,
         size: int,
+        participant_user_id: int | None = None,
     ) -> MeetingHistoryResponse:
         page = max(int(page), 1)
         size = max(min(int(size), 100), 1)
@@ -661,13 +662,33 @@ class MeetingHistoryService:
             keyword=keyword,
             page=page,
             size=size,
+            participant_user_id=participant_user_id,
         )
+
+        m_ids = [int(m.id) for m, _ in rows]
+        participants_by_meeting: dict[int, list[MeetingDetailParticipantOut]] = defaultdict(list)
+        if m_ids:
+            participant_rows = (
+                db.query(MeetingParticipant, User.name)
+                .join(User, User.id == MeetingParticipant.user_id)
+                .filter(MeetingParticipant.meeting_id.in_(m_ids))
+                .order_by(MeetingParticipant.meeting_id, MeetingParticipant.id)
+                .all()
+            )
+            for mp, user_name in participant_rows:
+                participants_by_meeting[int(mp.meeting_id)].append(
+                    MeetingDetailParticipantOut(
+                        user_id=int(mp.user_id),
+                        name=str(user_name),
+                    )
+                )
 
         items: list[MeetingHistoryItemOut] = []
         for meeting, minute in rows:
+            mid = int(meeting.id)
             items.append(
                 MeetingHistoryItemOut(
-                    id=int(meeting.id),
+                    id=mid,
                     title=meeting.title,
                     status=(
                         meeting.status.value
@@ -678,6 +699,7 @@ class MeetingHistoryService:
                     started_at=_to_kst_aware(meeting.started_at),  # type: ignore[arg-type]
                     ended_at=_to_kst_aware(meeting.ended_at),  # type: ignore[arg-type]
                     summary=(minute.summary if minute else None),
+                    participants=participants_by_meeting.get(mid, []),
                 )
             )
 
