@@ -1,6 +1,6 @@
 # app\domains\meeting\service.py
 from collections import defaultdict
-from datetime import datetime, time, timedelta
+from datetime import date, datetime, time, timedelta
 
 from fastapi import HTTPException, status
 from sqlalchemy import desc
@@ -582,7 +582,9 @@ class MeetingSearchService:
                 ).filter(MeetingParticipant.user_id == params.participant_id)
             ).distinct()
 
-        meetings = q.order_by(desc(Meeting.scheduled_at).nulls_last()).all()
+        meetings = q.order_by(
+            Meeting.scheduled_at.is_(None), desc(Meeting.scheduled_at)
+        ).all()
 
         if not meetings:
             return MeetingSearchResponse(
@@ -628,7 +630,10 @@ class MeetingSearchService:
                     meeting_id=mid,
                     title=m.title,
                     room_name=getattr(m, "room_name", None),
+                    status=getattr(getattr(m, "status", None), "value", str(getattr(m, "status", ""))),
                     scheduled_at=_to_kst_aware(m.scheduled_at),  # type: ignore[arg-type]
+                    started_at=_to_kst_aware(m.started_at),  # type: ignore[arg-type]
+                    ended_at=_to_kst_aware(m.ended_at),  # type: ignore[arg-type]
                     participants=participants_by_meeting.get(mid, []),
                     summary=summary_by_meeting.get(mid),
                 )
@@ -652,6 +657,7 @@ class MeetingHistoryService:
         page: int,
         size: int,
         participant_user_id: int | None = None,
+        on_date: date | None = None,
     ) -> MeetingHistoryResponse:
         page = max(int(page), 1)
         size = max(min(int(size), 100), 1)
@@ -663,6 +669,7 @@ class MeetingHistoryService:
             page=page,
             size=size,
             participant_user_id=participant_user_id,
+            on_date=on_date,
         )
 
         m_ids = [int(m.id) for m, _ in rows]

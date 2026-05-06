@@ -1,6 +1,8 @@
 # app\domains\meeting\repository.py
 from __future__ import annotations
 
+from datetime import date as DateType
+
 from sqlalchemy import desc, func, or_
 from sqlalchemy.orm import Session
 
@@ -17,6 +19,7 @@ class MeetingHistoryRepository:
         page: int,
         size: int,
         participant_user_id: int | None = None,
+        on_date: DateType | None = None,
     ) -> tuple[int, list[tuple[Meeting, MeetingMinute | None]]]:
         q = (
             db.query(Meeting, MeetingMinute)
@@ -43,6 +46,15 @@ class MeetingHistoryRepository:
                         MeetingMinute.summary.ilike(like),
                     )
                 )
+
+        if on_date is not None:
+            q = q.filter(
+                or_(
+                    func.date(Meeting.scheduled_at) == on_date,
+                    func.date(Meeting.started_at) == on_date,
+                    func.date(Meeting.ended_at) == on_date,
+                )
+            )
 
         total = q.with_entities(func.count(Meeting.id)).scalar() or 0
 

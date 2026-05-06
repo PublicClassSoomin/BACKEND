@@ -88,7 +88,10 @@ class MeetingSearchItemOut(BaseModel):
     meeting_id: int
     title: str
     room_name: Optional[str] = None
+    status: str
     scheduled_at: Optional[datetime] = None
+    started_at: Optional[datetime] = None
+    ended_at: Optional[datetime] = None
     participants: list[MeetingSearchParticipantOut] = Field(default_factory=list)
     summary: Optional[str] = None
 
