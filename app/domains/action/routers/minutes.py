@@ -219,23 +219,56 @@ async def preview_minutes_pdf(
     _PDF_OUTPUT_STORE.mkdir(parents=True, exist_ok=True)
     output_pdf = _PDF_OUTPUT_STORE / f"{meeting_id}.pdf"
 
+    render_mode = (body.render_mode if body else "html") or "html"
     loop = asyncio.get_event_loop()
     pdf_bytes: bytes
+    _fallback = False
 
     try:
-        logger.info("PDF 생성 시작 (meeting_id=%d)", meeting_id)
-        pdf_bytes = await loop.run_in_executor(
-            None,
-            lambda: pdf_renderer.render(fields),
-        )
+        if render_mode == "overlay":
+            from app.domains.action.minutes_pipeline import overlay_renderer
+            logger.info("PDF 생성 시작 (meeting_id=%d, render_mode=overlay)", meeting_id)
+            pdf_bytes = await loop.run_in_executor(
+                None, lambda: overlay_renderer.render(fields)
+            )
+        else:
+            logger.info("PDF 생성 시작 (meeting_id=%d, render_mode=html)", meeting_id)
+            pdf_bytes = await loop.run_in_executor(
+                None, lambda: pdf_renderer.render(fields)
+            )
+    except Exception as exc:
+        if render_mode == "overlay":
+            logger.warning(
+                "오버레이 렌더 실패 → HTML 폴백 (meeting_id=%d, fallback=True): %s",
+                meeting_id, exc,
+            )
+            _fallback = True
+            try:
+                pdf_bytes = await loop.run_in_executor(
+                    None, lambda: pdf_renderer.render(fields)
+                )
+            except Exception as fallback_exc:
+                logger.error("HTML 폴백도 실패 (meeting_id=%d): %s", meeting_id, fallback_exc)
+                raise HTTPException(
+                    status_code=500, detail=f"PDF 생성에 실패했습니다: {fallback_exc}"
+                ) from fallback_exc
+        else:
+            logger.error("PDF 생성 오류 (meeting_id=%d): %s", meeting_id, exc)
+            raise HTTPException(status_code=500, detail=f"PDF 생성에 실패했습니다: {exc}") from exc
 
+    logger.info(
+        "PDF 생성 완료 (meeting_id=%d, render_mode=%s, fallback=%s)",
+        meeting_id, render_mode, _fallback,
+    )
+
+    try:
         output_pdf.write_bytes(pdf_bytes)
         preview_pngs = await loop.run_in_executor(
             None,
             lambda: pdf_renderer.preview_from_pdf_bytes(pdf_bytes, [0], dpi=150),
         )
     except Exception as exc:
-        logger.error("PDF 생성 오류 (meeting_id=%d): %s", meeting_id, exc)
+        logger.error("PDF 저장/미리보기 오류 (meeting_id=%d): %s", meeting_id, exc)
         raise HTTPException(status_code=500, detail=f"PDF 생성에 실패했습니다: {exc}") from exc
 
     pdf_width, pdf_height = pdf_renderer.get_pdf_page_size(pdf_bytes)
