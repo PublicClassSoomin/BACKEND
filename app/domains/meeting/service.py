@@ -1,10 +1,11 @@
 # app\domains\meeting\service.py
 from collections import defaultdict
-from datetime import datetime, time, timedelta
+from datetime import date, datetime, time, timedelta
 
 from fastapi import HTTPException, status
 from sqlalchemy import case, desc
 from sqlalchemy.orm import Session
+import json as _json
 
 from app.utils.time_utils import KST
 from app.domains.meeting.models import (
@@ -149,9 +150,15 @@ class MeetingCreateService:
 
             if payload.sync_google_calendar:
                 # Workspace 단위 Google OAuth 토큰을 사용해 캘린더 이벤트 생성 후 event_id 저장
-                access_token = await integration_service.get_valid_google_token(db, workspace_id)
+                access_token = await integration_service.get_valid_google_token(
+                    db, workspace_id
+                )
                 gcal = GoogleCalendarClient(access_token)
-                calendar_id = integration_service.get_required_workspace_google_calendar_id(db, workspace_id)
+                calendar_id = (
+                    integration_service.get_required_workspace_google_calendar_id(
+                        db, workspace_id
+                    )
+                )
 
                 emails = [
                     str(row[0])
@@ -174,7 +181,9 @@ class MeetingCreateService:
                     description=f"WorkB 회의: {payload.meeting_type}",
                     calendar_id=calendar_id,
                 )
-                meeting.google_calendar_event_id = ev.get("id") if isinstance(ev, dict) else None
+                meeting.google_calendar_event_id = (
+                    ev.get("id") if isinstance(ev, dict) else None
+                )
 
             db.commit()
             db.refresh(meeting)
@@ -220,11 +229,19 @@ class MeetingDeleteService:
         try:
             # Google Calendar 이벤트도 함께 삭제 (있을 때만)
             if meeting.google_calendar_event_id:
-                access_token = await integration_service.get_valid_google_token(db, workspace_id)
+                access_token = await integration_service.get_valid_google_token(
+                    db, workspace_id
+                )
                 gcal = GoogleCalendarClient(access_token)
-                calendar_id = integration_service.get_required_workspace_google_calendar_id(db, workspace_id)
+                calendar_id = (
+                    integration_service.get_required_workspace_google_calendar_id(
+                        db, workspace_id
+                    )
+                )
                 try:
-                    await gcal.delete_event(meeting.google_calendar_event_id, calendar_id=calendar_id)
+                    await gcal.delete_event(
+                        meeting.google_calendar_event_id, calendar_id=calendar_id
+                    )
                 except Exception:
                     # 캘린더 삭제 실패로 DB 삭제 전체를 막지 않음 (토큰/권한/이미 삭제됨 등)
                     pass
@@ -265,7 +282,9 @@ class MeetingDeleteService:
             # 5) wbs: tasks -> epics
             epic_ids = [
                 int(e.id)
-                for e in db.query(WbsEpic.id).filter(WbsEpic.meeting_id == meeting_id).all()
+                for e in db.query(WbsEpic.id)
+                .filter(WbsEpic.meeting_id == meeting_id)
+                .all()
             ]
             if epic_ids:
                 db.query(WbsTask).filter(WbsTask.epic_id.in_(epic_ids)).delete(
@@ -350,9 +369,15 @@ class MeetingUpdateService:
 
             # Google Calendar 이벤트가 이미 연결되어 있으면 함께 수정
             if meeting.google_calendar_event_id:
-                access_token = await integration_service.get_valid_google_token(db, workspace_id)
+                access_token = await integration_service.get_valid_google_token(
+                    db, workspace_id
+                )
                 gcal = GoogleCalendarClient(access_token)
-                calendar_id = integration_service.get_required_workspace_google_calendar_id(db, workspace_id)
+                calendar_id = (
+                    integration_service.get_required_workspace_google_calendar_id(
+                        db, workspace_id
+                    )
+                )
 
                 emails = [
                     str(row[0])
@@ -378,9 +403,15 @@ class MeetingUpdateService:
                 )
             elif payload.sync_google_calendar:
                 # 기존에 연동되지 않았던 회의라도, 수정 시 연동 체크하면 새 이벤트를 생성
-                access_token = await integration_service.get_valid_google_token(db, workspace_id)
+                access_token = await integration_service.get_valid_google_token(
+                    db, workspace_id
+                )
                 gcal = GoogleCalendarClient(access_token)
-                calendar_id = integration_service.get_required_workspace_google_calendar_id(db, workspace_id)
+                calendar_id = (
+                    integration_service.get_required_workspace_google_calendar_id(
+                        db, workspace_id
+                    )
+                )
 
                 emails = [
                     str(row[0])
@@ -402,14 +433,27 @@ class MeetingUpdateService:
                     description=f"WorkB 회의: {payload.meeting_type}",
                     calendar_id=calendar_id,
                 )
-                meeting.google_calendar_event_id = ev.get("id") if isinstance(ev, dict) else None
-            elif payload.sync_google_calendar is False and meeting.google_calendar_event_id:
+                meeting.google_calendar_event_id = (
+                    ev.get("id") if isinstance(ev, dict) else None
+                )
+            elif (
+                payload.sync_google_calendar is False
+                and meeting.google_calendar_event_id
+            ):
                 # 명시적으로 해제 요청이면 이벤트 삭제 후 연결 해제
-                access_token = await integration_service.get_valid_google_token(db, workspace_id)
+                access_token = await integration_service.get_valid_google_token(
+                    db, workspace_id
+                )
                 gcal = GoogleCalendarClient(access_token)
-                calendar_id = integration_service.get_required_workspace_google_calendar_id(db, workspace_id)
+                calendar_id = (
+                    integration_service.get_required_workspace_google_calendar_id(
+                        db, workspace_id
+                    )
+                )
                 try:
-                    await gcal.delete_event(meeting.google_calendar_event_id, calendar_id=calendar_id)
+                    await gcal.delete_event(
+                        meeting.google_calendar_event_id, calendar_id=calendar_id
+                    )
                 except Exception:
                     pass
                 meeting.google_calendar_event_id = None
@@ -483,7 +527,9 @@ class MinutePhotoService:
             db.flush()
 
         photos_dir = MinutePhotoService._ensure_minute_photo_dir(meeting_id)
-        filename = f"{now_kst().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:12]}.{ext}"
+        filename = (
+            f"{now_kst().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:12]}.{ext}"
+        )
         file_path = photos_dir / filename
         file_path.write_bytes(image_bytes)
 
@@ -564,14 +610,12 @@ class MeetingSearchService:
 
         if params.from_date is not None:
             q = q.filter(
-                Meeting.scheduled_at
-                >= datetime.combine(params.from_date, time.min)
+                Meeting.scheduled_at >= datetime.combine(params.from_date, time.min)
             )
 
         if params.to_date is not None:
             q = q.filter(
-                Meeting.scheduled_at
-                <= datetime.combine(params.to_date, time.max)
+                Meeting.scheduled_at <= datetime.combine(params.to_date, time.max)
             )
 
         if params.participant_id is not None:
@@ -604,7 +648,9 @@ class MeetingSearchService:
             .order_by(MeetingParticipant.meeting_id, MeetingParticipant.id)
             .all()
         )
-        participants_by_meeting: dict[int, list[MeetingSearchParticipantOut]] = defaultdict(list)
+        participants_by_meeting: dict[int, list[MeetingSearchParticipantOut]] = (
+            defaultdict(list)
+        )
         for mp, user_name in participant_rows:
             participants_by_meeting[int(mp.meeting_id)].append(
                 MeetingSearchParticipantOut(
@@ -615,9 +661,7 @@ class MeetingSearchService:
 
         # 회의록 요약: meeting_id IN 한 번에 조회
         minute_rows = (
-            db.query(MeetingMinute)
-            .filter(MeetingMinute.meeting_id.in_(m_ids))
-            .all()
+            db.query(MeetingMinute).filter(MeetingMinute.meeting_id.in_(m_ids)).all()
         )
         summary_by_meeting: dict[int, str | None] = {
             int(row.meeting_id): row.summary for row in minute_rows
@@ -631,7 +675,14 @@ class MeetingSearchService:
                     meeting_id=mid,
                     title=m.title,
                     room_name=getattr(m, "room_name", None),
+                    status=getattr(
+                        getattr(m, "status", None),
+                        "value",
+                        str(getattr(m, "status", "")),
+                    ),
                     scheduled_at=_to_kst_aware(m.scheduled_at),  # type: ignore[arg-type]
+                    started_at=_to_kst_aware(m.started_at),  # type: ignore[arg-type]
+                    ended_at=_to_kst_aware(m.ended_at),  # type: ignore[arg-type]
                     participants=participants_by_meeting.get(mid, []),
                     summary=summary_by_meeting.get(mid),
                 )
@@ -654,6 +705,8 @@ class MeetingHistoryService:
         keyword: str | None,
         page: int,
         size: int,
+        participant_user_id: int | None = None,
+        on_date: date | None = None,
     ) -> MeetingHistoryResponse:
         page = max(int(page), 1)
         size = max(min(int(size), 100), 1)
@@ -664,13 +717,36 @@ class MeetingHistoryService:
             keyword=keyword,
             page=page,
             size=size,
+            participant_user_id=participant_user_id,
+            on_date=on_date,
         )
+
+        m_ids = [int(m.id) for m, _ in rows]
+        participants_by_meeting: dict[int, list[MeetingDetailParticipantOut]] = (
+            defaultdict(list)
+        )
+        if m_ids:
+            participant_rows = (
+                db.query(MeetingParticipant, User.name)
+                .join(User, User.id == MeetingParticipant.user_id)
+                .filter(MeetingParticipant.meeting_id.in_(m_ids))
+                .order_by(MeetingParticipant.meeting_id, MeetingParticipant.id)
+                .all()
+            )
+            for mp, user_name in participant_rows:
+                participants_by_meeting[int(mp.meeting_id)].append(
+                    MeetingDetailParticipantOut(
+                        user_id=int(mp.user_id),
+                        name=str(user_name),
+                    )
+                )
 
         items: list[MeetingHistoryItemOut] = []
         for meeting, minute in rows:
+            mid = int(meeting.id)
             items.append(
                 MeetingHistoryItemOut(
-                    id=int(meeting.id),
+                    id=mid,
                     title=meeting.title,
                     status=(
                         meeting.status.value
@@ -681,6 +757,7 @@ class MeetingHistoryService:
                     started_at=_to_kst_aware(meeting.started_at),  # type: ignore[arg-type]
                     ended_at=_to_kst_aware(meeting.ended_at),  # type: ignore[arg-type]
                     summary=(minute.summary if minute else None),
+                    participants=participants_by_meeting.get(mid, []),
                 )
             )
 
@@ -691,7 +768,9 @@ class MeetingDetailService:
     """워크스페이스 소속 회의 단건 조회 (상세·참석자)."""
 
     @staticmethod
-    def get_meeting(db: Session, workspace_id: int, meeting_id: int) -> MeetingDetailResponse:
+    def get_meeting(
+        db: Session, workspace_id: int, meeting_id: int
+    ) -> MeetingDetailResponse:
         meeting = (
             db.query(Meeting)
             .filter(Meeting.id == meeting_id, Meeting.workspace_id == workspace_id)
@@ -710,6 +789,23 @@ class MeetingDetailService:
             .order_by(MeetingParticipant.id)
             .all()
         )
+
+        minute = (
+            db.query(MeetingMinute)
+            .filter(MeetingMinute.meeting_id == meeting_id)
+            .first()
+        )
+
+        summary_text = None
+        if minute and minute.summary:
+            try:
+                parsed = _json.loads(minute.summary)
+                key_points = parsed.get("key_points", [])
+                if key_points:
+                    summary_text = "\n".join(f"* {kp}" for kp in key_points)
+            except Exception:
+                pass
+
         participants = [
             MeetingDetailParticipantOut(user_id=int(mp.user_id), name=str(name))
             for mp, name in rows
@@ -732,6 +828,7 @@ class MeetingDetailService:
                 scheduled_at=_to_kst_aware(meeting.scheduled_at),  # type: ignore[arg-type]
                 started_at=_to_kst_aware(meeting.started_at),  # type: ignore[arg-type]
                 ended_at=_to_kst_aware(meeting.ended_at),  # type: ignore[arg-type]
+                summary=summary_text,
                 participants=participants,
             ),
             message="OK",
