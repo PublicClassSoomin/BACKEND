@@ -2,7 +2,10 @@ import logging
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.domains.action.mongo_repository import get_meeting_summary, get_meeting_utterances
+from app.domains.action.mongo_repository import (
+    get_meeting_utterances,
+    get_or_build_meeting_summary,
+)
 from app.domains.action.services.minutes_prompt_builder import build_minutes_from_transcript_prompt
 from app.domains.intelligence.models import MeetingMinute, MinuteStatus
 from app.domains.meeting.models import Meeting, MeetingParticipant
@@ -19,7 +22,9 @@ async def build_and_save_minutes(
     meeting_id: int,
 ) -> MeetingMinute:
     """회의록을 생성하고 DB에 저장합니다. 기존 회의록이 있으면 덮어씁니다."""
-    summary = get_meeting_summary(meeting_id)
+    meeting = db.query(Meeting).filter(Meeting.id == meeting_id).one_or_none()
+    workspace_id = int(meeting.workspace_id) if meeting else 0
+    summary = await get_or_build_meeting_summary(meeting_id, workspace_id)
     if summary is not None:
         content = _format_minutes(summary)
     else:

@@ -14,7 +14,7 @@ from fastapi.responses import FileResponse, HTMLResponse
 from sqlalchemy.orm import Session
 
 from app.domains.action import repository as action_repo
-from app.domains.action.mongo_repository import get_meeting_summary
+from app.domains.action.mongo_repository import get_or_build_meeting_summary
 from app.domains.action.schemas import (
     ExportResponse,
     MinutesPatchRequest,
@@ -177,7 +177,7 @@ async def preview_minutes_pdf(
         fields = data_mapper.from_explicit(body.field_values)
         fields = _enrich_fields_from_db(fields, db, meeting_id)
     else:
-        summary = get_meeting_summary(meeting_id)
+        summary = await get_or_build_meeting_summary(meeting_id, workspace_id)
         if summary:
             meeting_row = action_repo.get_meeting(db, meeting_id)
             creator_name = ""
@@ -219,46 +219,21 @@ async def preview_minutes_pdf(
     _PDF_OUTPUT_STORE.mkdir(parents=True, exist_ok=True)
     output_pdf = _PDF_OUTPUT_STORE / f"{meeting_id}.pdf"
 
-    render_mode = (body.render_mode if body else "html") or "html"
     loop = asyncio.get_event_loop()
     pdf_bytes: bytes
-    _fallback = False
 
     try:
-        if render_mode == "overlay":
-            from app.domains.action.minutes_pipeline import overlay_renderer
-            logger.info("PDF 생성 시작 (meeting_id=%d, render_mode=overlay)", meeting_id)
-            pdf_bytes = await loop.run_in_executor(
-                None, lambda: overlay_renderer.render(fields)
-            )
-        else:
-            logger.info("PDF 생성 시작 (meeting_id=%d, render_mode=html)", meeting_id)
-            pdf_bytes = await loop.run_in_executor(
-                None, lambda: pdf_renderer.render(fields)
-            )
+        logger.info("PDF 생성 시작 (meeting_id=%d, render_mode=html)", meeting_id)
+        pdf_bytes = await loop.run_in_executor(
+            None, lambda: pdf_renderer.render(fields)
+        )
     except Exception as exc:
-        if render_mode == "overlay":
-            logger.warning(
-                "오버레이 렌더 실패 → HTML 폴백 (meeting_id=%d, fallback=True): %s",
-                meeting_id, exc,
-            )
-            _fallback = True
-            try:
-                pdf_bytes = await loop.run_in_executor(
-                    None, lambda: pdf_renderer.render(fields)
-                )
-            except Exception as fallback_exc:
-                logger.error("HTML 폴백도 실패 (meeting_id=%d): %s", meeting_id, fallback_exc)
-                raise HTTPException(
-                    status_code=500, detail=f"PDF 생성에 실패했습니다: {fallback_exc}"
-                ) from fallback_exc
-        else:
-            logger.error("PDF 생성 오류 (meeting_id=%d): %s", meeting_id, exc)
-            raise HTTPException(status_code=500, detail=f"PDF 생성에 실패했습니다: {exc}") from exc
+        logger.error("PDF 생성 오류 (meeting_id=%d): %s", meeting_id, exc)
+        raise HTTPException(status_code=500, detail=f"PDF 생성에 실패했습니다: {exc}") from exc
 
     logger.info(
-        "PDF 생성 완료 (meeting_id=%d, render_mode=%s, fallback=%s)",
-        meeting_id, render_mode, _fallback,
+        "PDF 생성 완료 (meeting_id=%d, render_mode=html)",
+        meeting_id,
     )
 
     try:

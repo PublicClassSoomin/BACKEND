@@ -23,7 +23,6 @@ class MinutesPatchRequest(BaseModel):
 
 class MinutesPdfPreviewRequest(BaseModel):
     field_values: Optional[dict] = None
-    render_mode: str = "html"   # "html" | "overlay"
 
 class MinutesPdfPreviewResponse(BaseModel):
     preview_b64:  str
