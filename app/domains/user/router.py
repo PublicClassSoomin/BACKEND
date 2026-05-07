@@ -19,8 +19,9 @@ service가 repository로 DB 작업
 """
 
 from urllib.parse import urlencode
+from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
@@ -41,6 +42,7 @@ from app.domains.user.schemas import (
     PasswordResetConfirmRequest,
     PasswordResetRequest,
     RefreshTokenRequest,
+    SocialSignupRequest,
     TokenResponse,
     UserProfileResponse,
     UserProfileUpdateRequest,
@@ -58,6 +60,8 @@ from app.domains.user.service import (
     logout_service,
     request_password_reset_service,
     refresh_token_service,
+    complete_social_signup_service,
+    PendingSocialSignup,
     social_login_callback_service,
     signup_admin_service,
     signup_member_service,
@@ -65,9 +69,23 @@ from app.domains.user.service import (
     update_my_device_settings_service,
     withdraw_my_account_service,
 )
+from app.utils.local_images import save_local_image
 
 
 router = APIRouter()
+
+
+@router.post("/me/profile-image", status_code=status.HTTP_200_OK)
+async def upload_my_profile_image(
+    file: UploadFile = File(...),
+    current_user_id: int = Depends(get_current_user_id),
+) -> dict[str, str]:
+    image_url = await save_local_image(
+        file=file,
+        directory=Path("storage/profile"),
+        stem=f"user-{current_user_id}",
+    )
+    return {"image_url": image_url}
 
 
 @router.get(
@@ -99,6 +117,14 @@ async def social_oauth_callback(
             "refresh_token": tokens.refresh_token,
         })
         return RedirectResponse(f"{settings.FRONTEND_URL.rstrip('/')}/oauth/callback?{params}")
+    except PendingSocialSignup as pending:
+        params = urlencode({
+            "social_signup": "1",
+            "signup_token": pending.signup_token,
+            "email": pending.email,
+            "name": pending.name,
+        })
+        return RedirectResponse(f"{settings.FRONTEND_URL.rstrip('/')}/oauth/callback?{params}")
     except HTTPException as exc:
         message = exc.detail if isinstance(exc.detail, str) else "소셜 로그인에 실패했습니다."
         params = urlencode({"error": message})
@@ -106,6 +132,21 @@ async def social_oauth_callback(
     except Exception as exc:
         params = urlencode({"error": str(exc)})
         return RedirectResponse(f"{settings.FRONTEND_URL.rstrip('/')}/login?{params}")
+
+
+@router.post(
+    "/oauth/social-signup",
+    response_model=TokenResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def complete_social_signup(
+    payload: SocialSignupRequest,
+    db: Session = Depends(get_db),
+) -> TokenResponse:
+    """
+    미가입 소셜 계정의 관리자/멤버 회원가입을 완료합니다.
+    """
+    return complete_social_signup_service(db, payload)
 
 
 @router.post(
